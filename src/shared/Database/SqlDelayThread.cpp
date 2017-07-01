@@ -23,22 +23,25 @@
 #include "Database/SqlOperations.h"
 #include "DatabaseEnv.h"
 
-SqlDelayThread::SqlDelayThread(Database* db, SqlConnection* conn) : m_dbEngine(db), m_dbConnection(conn), m_running(true)
+SqlDelayThread::SqlDelayThread(Database* db, SqlConnection* conn)
+    : m_dbEngine(db)
+    , m_dbConnection(conn)
+    , m_running(true)
 {
 }
 
 SqlDelayThread::~SqlDelayThread()
 {
-    //process all requests which might have been queued while thread was stopping
+    // process all requests which might have been queued while thread was stopping
     ProcessRequests();
     delete m_dbConnection;
 }
 
 void SqlDelayThread::run()
 {
-    #ifndef DO_POSTGRESQL
+#ifndef DO_POSTGRESQL
     mysql_thread_init();
-    #endif
+#endif
 
     const uint32 loopSleepms = 10;
 
@@ -53,18 +56,18 @@ void SqlDelayThread::run()
 
         ProcessRequests();
 
-        if((loopCounter++) >= pingEveryLoop)
+        if ((loopCounter++) >= pingEveryLoop)
         {
             loopCounter = 0;
             m_dbEngine->Ping();
-            if (QueryResult* res = m_dbConnection->Query("SELECT 1"))
-                delete res;
+            if (std::shared_ptr<QueryResult> res = m_dbConnection->Query("SELECT 1"))
+                res.reset();
         }
     }
 
-    #ifndef DO_POSTGRESQL
+#ifndef DO_POSTGRESQL
     mysql_thread_end();
-    #endif
+#endif
 }
 
 void SqlDelayThread::Stop()

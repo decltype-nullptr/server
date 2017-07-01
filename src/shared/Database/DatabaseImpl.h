@@ -24,214 +24,213 @@
 
 /// Function body definitions for the template function members of the Database class
 
-#define ASYNC_QUERY_BODY(sql) if (!sql || !m_pResultQueue) return false;
-#define ASYNC_DELAYHOLDER_BODY(holder) if (!holder || !m_pResultQueue) return false;
-
-#define ASYNC_PQUERY_BODY(format, szQuery) \
-    if(!format) return false; \
-    \
-    char szQuery [MAX_QUERY_LEN]; \
-    \
-    { \
-        va_list ap; \
-        \
-        va_start(ap, format); \
-        int res = vsnprintf( szQuery, MAX_QUERY_LEN, format, ap ); \
-        va_end(ap); \
-        \
-        if(res==-1) \
-        { \
-            sLog.outError("SQL Query truncated (and not execute) for format: %s",format); \
-            return false; \
-        } \
-    }
+#define ASYNC_QUERY_BODY(sql)    \
+    if (!sql || !m_pResultQueue) \
+        return false;
+#define ASYNC_DELAYHOLDER_BODY(holder) \
+    if (!holder || !m_pResultQueue)    \
+        return false;
 
 // -- Query / member --
 
-template<class Class>
-bool
-Database::AsyncQuery(Class *object, void (Class::*method)(QueryResult*), const char *sql)
+template <typename Class, typename... Args>
+inline bool Database::AsyncQuery(const char* sql,
+                                 Class* object,
+                                 void (Class::*method)(const std::shared_ptr<QueryResult>&,
+                                                       Args...),
+                                 Args... params)
 {
     ASYNC_QUERY_BODY(sql)
-    AddToDelayQueue(new SqlQuery(sql, new MaNGOS::QueryCallback<Class>(object, method, (QueryResult*)NULL), m_pResultQueue));
+    AddToDelayQueue(
+        new SqlQuery(sql,
+                     new MaNGOS::QueryCallback<Class, Args...>(object, method, nullptr, params...),
+                     m_pResultQueue));
     return true;
 }
 
-template<class Class>
-bool
-Database::AsyncQueryUnsafe(Class *object, void (Class::*method)(QueryResult*), const char *sql)
+template <typename... Args>
+inline bool Database::AsyncQuery(const char* sql,
+                                 void (*method)(const std::shared_ptr<QueryResult>&, Args...),
+                                 Args... params)
 {
     ASYNC_QUERY_BODY(sql)
-    MaNGOS::QueryCallback<Class>* cb = new MaNGOS::QueryCallback<Class>(object, method, (QueryResult*)NULL);
+    AddToDelayQueue(new SqlQuery(
+        sql, new MaNGOS::SQueryCallback<Args...>(method, nullptr, params...), m_pResultQueue));
+    return true;
+}
+
+template <typename Class, typename... Args>
+inline bool Database::AsyncQueryUnsafe(const char* sql,
+                                       Class* object,
+                                       void (Class::*method)(const std::shared_ptr<QueryResult>&,
+                                                             Args...),
+                                       Args... params)
+{
+    ASYNC_QUERY_BODY(sql)
+    auto cb        = new MaNGOS::QueryCallback<Class, Args...>(object, method, nullptr, params...);
     cb->threadSafe = false;
     AddToDelayQueue(new SqlQuery(sql, cb, m_pResultQueue));
     return true;
 }
 
-template<class Class, typename ParamType1>
-bool
-Database::AsyncQuery(Class *object, void (Class::*method)(QueryResult*, ParamType1), ParamType1 param1, const char *sql)
+template <typename... Args>
+inline bool Database::AsyncQueryUnsafe(const char* sql,
+                                       void (*method)(const std::shared_ptr<QueryResult>&, Args...),
+                                       Args... params)
 {
     ASYNC_QUERY_BODY(sql)
-    AddToDelayQueue(new SqlQuery(sql, new MaNGOS::QueryCallback<Class, ParamType1>(object, method, (QueryResult*)NULL, param1), m_pResultQueue));
-    return true;
-}
-template<class Class, typename ParamType1>
-bool
-Database::AsyncQueryUnsafe(Class *object, void (Class::*method)(QueryResult*, ParamType1), ParamType1 param1, const char *sql)
-{
-    ASYNC_QUERY_BODY(sql)
-    MaNGOS::QueryCallback<Class, ParamType1>* cb = new MaNGOS::QueryCallback<Class, ParamType1>(object, method, (QueryResult*)NULL, param1);
+    auto cb        = new MaNGOS::SQueryCallback<Args...>(method, nullptr, params...);
     cb->threadSafe = false;
     AddToDelayQueue(new SqlQuery(sql, cb, m_pResultQueue));
-    return true;
-}
-
-template<class Class, typename ParamType1, typename ParamType2>
-bool
-Database::AsyncQuery(Class *object, void (Class::*method)(QueryResult*, ParamType1, ParamType2), ParamType1 param1, ParamType2 param2, const char *sql)
-{
-    ASYNC_QUERY_BODY(sql)
-    AddToDelayQueue(new SqlQuery(sql, new MaNGOS::QueryCallback<Class, ParamType1, ParamType2>(object, method, (QueryResult*)NULL, param1, param2), m_pResultQueue));
-    return true;
-}
-
-template<class Class, typename ParamType1, typename ParamType2, typename ParamType3>
-bool
-Database::AsyncQuery(Class *object, void (Class::*method)(QueryResult*, ParamType1, ParamType2, ParamType3), ParamType1 param1, ParamType2 param2, ParamType3 param3, const char *sql)
-{
-    ASYNC_QUERY_BODY(sql)
-    AddToDelayQueue(new SqlQuery(sql, new MaNGOS::QueryCallback<Class, ParamType1, ParamType2, ParamType3>(object, method, (QueryResult*)NULL, param1, param2, param3), m_pResultQueue));
-    return true;
-}
-
-// -- Query / static --
-
-template<typename ParamType1>
-bool
-Database::AsyncQuery(void (*method)(QueryResult*, ParamType1), ParamType1 param1, const char *sql)
-{
-    ASYNC_QUERY_BODY(sql)
-    AddToDelayQueue(new SqlQuery(sql, new MaNGOS::SQueryCallback<ParamType1>(method, (QueryResult*)NULL, param1), m_pResultQueue));
-    return true;
-}
-
-template<typename ParamType1, typename ParamType2>
-bool
-Database::AsyncQuery(void (*method)(QueryResult*, ParamType1, ParamType2), ParamType1 param1, ParamType2 param2, const char *sql)
-{
-    ASYNC_QUERY_BODY(sql)
-    AddToDelayQueue(new SqlQuery(sql, new MaNGOS::SQueryCallback<ParamType1, ParamType2>(method, (QueryResult*)NULL, param1, param2), m_pResultQueue));
-    return true;
-}
-
-template<typename ParamType1, typename ParamType2, typename ParamType3>
-bool
-Database::AsyncQuery(void (*method)(QueryResult*, ParamType1, ParamType2, ParamType3), ParamType1 param1, ParamType2 param2, ParamType3 param3, const char *sql)
-{
-    ASYNC_QUERY_BODY(sql)
-    AddToDelayQueue(new SqlQuery(sql, new MaNGOS::SQueryCallback<ParamType1, ParamType2, ParamType3>(method, (QueryResult*)NULL, param1, param2, param3), m_pResultQueue));
     return true;
 }
 
 // -- PQuery / member --
 
-template<class Class>
-bool
-Database::AsyncPQuery(Class *object, void (Class::*method)(QueryResult*), const char *format,...)
+template <typename Class, typename... Args>
+inline bool Database::AsyncPQuery(QueryFormatter&& formatter,
+                                  Class* object,
+                                  void (Class::*method)(const std::shared_ptr<QueryResult>&,
+                                                        Args...),
+                                  Args... params)
 {
-    ASYNC_PQUERY_BODY(format, szQuery)
-    return AsyncQuery(object, method, szQuery);
+    return AsyncQuery(formatter.m_buffer, object, method, params...);
 }
 
-template<class Class>
-bool
-Database::AsyncPQueryUnsafe(Class *object, void (Class::*method)(QueryResult*), const char *format,...)
+template <typename Class, typename... Args>
+inline bool Database::AsyncPQueryUnsafe(QueryFormatter&& formatter,
+                                        Class* object,
+                                        void (Class::*method)(const std::shared_ptr<QueryResult>&,
+                                                              Args...),
+                                        Args... params)
 {
-    ASYNC_PQUERY_BODY(format, szQuery)
-    return AsyncQueryUnsafe(object, method, szQuery);
-}
-
-template<class Class, typename ParamType1>
-bool
-Database::AsyncPQuery(Class *object, void (Class::*method)(QueryResult*, ParamType1), ParamType1 param1, const char *format,...)
-{
-    ASYNC_PQUERY_BODY(format, szQuery)
-    return AsyncQuery(object, method, param1, szQuery);
-}
-template<class Class, typename ParamType1>
-bool
-Database::AsyncPQueryUnsafe(Class *object, void (Class::*method)(QueryResult*, ParamType1), ParamType1 param1, const char *format,...)
-{
-    ASYNC_PQUERY_BODY(format, szQuery)
-    return AsyncQueryUnsafe(object, method, param1, szQuery);
-}
-template<class Class, typename ParamType1, typename ParamType2>
-bool
-Database::AsyncPQuery(Class *object, void (Class::*method)(QueryResult*, ParamType1, ParamType2), ParamType1 param1, ParamType2 param2, const char *format,...)
-{
-    ASYNC_PQUERY_BODY(format, szQuery)
-    return AsyncQuery(object, method, param1, param2, szQuery);
-}
-
-template<class Class, typename ParamType1, typename ParamType2, typename ParamType3>
-bool
-Database::AsyncPQuery(Class *object, void (Class::*method)(QueryResult*, ParamType1, ParamType2, ParamType3), ParamType1 param1, ParamType2 param2, ParamType3 param3, const char *format,...)
-{
-    ASYNC_PQUERY_BODY(format, szQuery)
-    return AsyncQuery(object, method, param1, param2, param3, szQuery);
+    return AsyncQueryUnsafe(formatter.m_buffer, object, method, params...);
 }
 
 // -- PQuery / static --
 
-template<typename ParamType1>
-bool
-Database::AsyncPQuery(void (*method)(QueryResult*, ParamType1), ParamType1 param1, const char *format,...)
+template <typename... Args>
+inline bool Database::AsyncPQuery(QueryFormatter&& formatter,
+                                  void (*method)(const std::shared_ptr<QueryResult>&, Args...),
+                                  Args... params)
 {
-    ASYNC_PQUERY_BODY(format, szQuery)
-    return AsyncQuery(method, param1, szQuery);
+    return AsyncQuery(formatter.m_buffer, method, params...);
 }
 
-template<typename ParamType1, typename ParamType2>
-bool
-Database::AsyncPQuery(void (*method)(QueryResult*, ParamType1, ParamType2), ParamType1 param1, ParamType2 param2, const char *format,...)
+template <typename... Args>
+inline bool Database::AsyncPQueryUnsafe(QueryFormatter&& formatter,
+                                        void (*method)(const std::shared_ptr<QueryResult>&,
+                                                       Args...),
+                                        Args... params)
 {
-    ASYNC_PQUERY_BODY(format, szQuery)
-    return AsyncQuery(method, param1, param2, szQuery);
+    return AsyncQueryUnsafe(formatter.m_buffer, method, params...);
 }
 
-template<typename ParamType1, typename ParamType2, typename ParamType3>
-bool
-Database::AsyncPQuery(void (*method)(QueryResult*, ParamType1, ParamType2, ParamType3), ParamType1 param1, ParamType2 param2, ParamType3 param3, const char *format,...)
+template <typename... Args>
+inline bool Database::PExecute(const char* format, Args... params)
 {
-    ASYNC_PQUERY_BODY(format, szQuery)
-    return AsyncQuery(method, param1, param2, param3, szQuery);
+    if (!format)
+        return false;
+
+    char szQuery[ MAX_QUERY_LEN ];
+    int res = snprintf(szQuery, MAX_QUERY_LEN, format, params...);
+
+    if (res == -1)
+    {
+        sLog.outError("SQL Query truncated (and not execute) for format: %s", format);
+        return false;
+    }
+
+    return Execute(szQuery);
+}
+
+template <typename... Args>
+inline bool Database::PExecuteLog(const char* format, Args... params)
+{
+    if (!format)
+        return false;
+
+    char szQuery[ MAX_QUERY_LEN ];
+    int res = snprintf(szQuery, MAX_QUERY_LEN, format, params...);
+
+    if (res == -1)
+    {
+        sLog.outError("SQL Query truncated (and not execute) for format: %s", format);
+        return false;
+    }
+
+    if (m_logSQL)
+    {
+        time_t curr;
+        tm local;
+        time(&curr);                 // get current time_t value
+        local = *(localtime(&curr)); // dereference and assign
+        char fName[ 128 ];
+        sprintf(fName,
+                "%04d-%02d-%02d_logSQL.sql",
+                local.tm_year + 1900,
+                local.tm_mon + 1,
+                local.tm_mday);
+
+        FILE* log_file;
+        std::string logsDir_fname = m_logsDir + fName;
+        log_file                  = fopen(logsDir_fname.c_str(), "a");
+        if (log_file)
+        {
+            fprintf(log_file, "%s;\n", szQuery);
+            fclose(log_file);
+        }
+        else
+        {
+            // The file could not be opened
+            sLog.outError(
+                "SQL-Logging is disabled - Log file for the SQL commands could not be openend: %s",
+                fName);
+        }
+    }
+
+    return Execute(szQuery);
 }
 
 // -- QueryHolder --
 
-template<class Class>
-bool
-Database::DelayQueryHolder(Class *object, void (Class::*method)(QueryResult*, SqlQueryHolder*), SqlQueryHolder *holder)
+template <class Class>
+bool Database::DelayQueryHolder(Class* object,
+                                void (Class::*method)(const std::shared_ptr<QueryResult>&,
+                                                      SqlQueryHolder*),
+                                SqlQueryHolder* holder)
 {
     ASYNC_DELAYHOLDER_BODY(holder)
-    return holder->Execute(new MaNGOS::QueryCallback<Class, SqlQueryHolder*>(object, method, (QueryResult*)NULL, holder), this, m_pResultQueue);
+    return holder->Execute(
+        new MaNGOS::QueryCallback<Class, SqlQueryHolder*>(object, method, nullptr, holder),
+        this,
+        m_pResultQueue);
 }
-template<class Class>
-bool
-Database::DelayQueryHolderUnsafe(Class *object, void (Class::*method)(QueryResult*, SqlQueryHolder*), SqlQueryHolder *holder)
+template <class Class>
+bool Database::DelayQueryHolderUnsafe(Class* object,
+                                      void (Class::*method)(const std::shared_ptr<QueryResult>&,
+                                                            SqlQueryHolder*),
+                                      SqlQueryHolder* holder)
 {
     ASYNC_DELAYHOLDER_BODY(holder)
-    MaNGOS::QueryCallback<Class, SqlQueryHolder*> *cb = new MaNGOS::QueryCallback<Class, SqlQueryHolder*>(object, method, (QueryResult*)NULL, holder);
+    MaNGOS::QueryCallback<Class, SqlQueryHolder*>* cb =
+        new MaNGOS::QueryCallback<Class, SqlQueryHolder*>(object, method, nullptr, holder);
     cb->threadSafe = false;
     return holder->Execute(cb, this, m_pResultQueue);
 }
-template<class Class, typename ParamType1>
-bool
-Database::DelayQueryHolder(Class *object, void (Class::*method)(QueryResult*, SqlQueryHolder*, ParamType1), SqlQueryHolder *holder, ParamType1 param1)
+template <class Class, typename ParamType1>
+bool Database::DelayQueryHolder(Class* object,
+                                void (Class::*method)(const std::shared_ptr<QueryResult>&,
+                                                      SqlQueryHolder*,
+                                                      ParamType1),
+                                SqlQueryHolder* holder,
+                                ParamType1 param1)
 {
     ASYNC_DELAYHOLDER_BODY(holder)
-    return holder->Execute(new MaNGOS::QueryCallback<Class, SqlQueryHolder*, ParamType1>(object, method, (QueryResult*)NULL, holder, param1), this, m_pResultQueue);
+    return holder->Execute(new MaNGOS::QueryCallback<Class, SqlQueryHolder*, ParamType1>(
+                               object, method, nullptr, holder, param1),
+                           this,
+                           m_pResultQueue);
 }
 
 #undef ASYNC_QUERY_BODY

@@ -2,9 +2,9 @@
 #define MASTERPLAYER_H
 
 #include "Common.h"
-#include "SharedDefines.h"
-#include "ObjectGuid.h"
 #include "MapNodes/AbstractPlayer.h"
+#include "ObjectGuid.h"
+#include "SharedDefines.h"
 
 class PlayerSocial;
 class WorldSession;
@@ -15,7 +15,7 @@ struct Mail;
 class Item;
 class Channel;
 
-typedef std::map<uint8,ActionButton> ActionButtonList;
+typedef std::map<uint8, ActionButton> ActionButtonList;
 typedef std::deque<Mail*> PlayerMails;
 
 class MasterPlayer
@@ -41,17 +41,17 @@ public:
     void Whisper(const std::string& text, uint32 language, MasterPlayer* receiver);
     void ToggleDND();
     void ToggleAFK();
-    void JoinedChannel(Channel *c);
-    void LeftChannel(Channel *c);
+    void JoinedChannel(Channel* c);
+    void LeftChannel(Channel* c);
     void CleanupChannels();
 
     // SOCIAL SYSTEM
     PlayerSocial* GetSocial() const { return m_social; }
     void SetSocial(PlayerSocial* s) { m_social = s; }
-    void LoadSocial(QueryResult* result);
+    void LoadSocial(const std::shared_ptr<QueryResult>& result);
 
     // ACTIONS SYSTEM
-    void LoadActions(QueryResult *result);
+    void LoadActions(const std::shared_ptr<QueryResult>& result);
     void SaveActions();
     ActionButtonList& GetActionButtons() { return m_actionButtons; }
     void SendInitialActionButtons() const;
@@ -59,23 +59,28 @@ public:
     void removeActionButton(uint8 button);
 
     // MAIL SYSTEM
-    void LoadMailedItems(QueryResult *result);
-    void LoadMails(QueryResult* result);
+    void LoadMailedItems(const std::shared_ptr<QueryResult>& result);
+    void LoadMails(const std::shared_ptr<QueryResult>& result);
     void SaveMails();
-    void SendMailResult(uint32 mailId, MailResponseType mailAction, MailResponseResult mailError, uint32 equipError = 0, uint32 item_guid = 0, uint32 item_count = 0);
+    void SendMailResult(uint32 mailId,
+                        MailResponseType mailAction,
+                        MailResponseResult mailError,
+                        uint32 equipError = 0,
+                        uint32 item_guid  = 0,
+                        uint32 item_count = 0);
     void SendNewMail();
     void UpdateNextMailTimeAndUnreads();
     void AddNewMailDeliverTime(time_t deliver_time);
     void RemoveMail(uint32 id);
-    void AddMail(Mail* mail) { m_mail.push_front(mail);}// for call from WorldSession::SendMailTo
+    void AddMail(Mail* mail) { m_mail.push_front(mail); } // for call from WorldSession::SendMailTo
     uint32 GetMailSize() { return m_mail.size(); }
     Mail* GetMail(uint32 id);
     void MarkMailsUpdated() { m_mailsUpdated = true; }
     bool HasUnreadMail() const { return unReadMails > 0; }
-    void DecreaseUnreadMailsCount() { unReadMails = unReadMails ? unReadMails-1 : 0; }
+    void DecreaseUnreadMailsCount() { unReadMails = unReadMails ? unReadMails - 1 : 0; }
 
-    PlayerMails::iterator GetMailBegin() { return m_mail.begin();}
-    PlayerMails::iterator GetMailEnd() { return m_mail.end();}
+    PlayerMails::iterator GetMailBegin() { return m_mail.begin(); }
+    PlayerMails::iterator GetMailEnd() { return m_mail.end(); }
 
     typedef UNORDERED_MAP<uint32, Item*> ItemMap;
 
@@ -88,20 +93,34 @@ public:
     void AddMItem(Item* it);
     bool RemoveMItem(uint32 id) { return mMitems.erase(id) ? true : false; }
 
-
     // GUILD SYSTEMS
-    uint32 GetGuildId() const { return guildId;  }
+    uint32 GetGuildId() const { return guildId; }
     uint32 GetRank() const { return guildRank; }
 
     // GM SYSTEMS
     bool isAcceptTickets() const { return m_ExtraFlags & PLAYER_EXTRA_GM_ACCEPT_TICKETS; }
-    void SetAcceptTicket(bool on) { if(on) m_ExtraFlags |= PLAYER_EXTRA_GM_ACCEPT_TICKETS; else m_ExtraFlags &= ~PLAYER_EXTRA_GM_ACCEPT_TICKETS; }
+    void SetAcceptTicket(bool on)
+    {
+        if (on)
+            m_ExtraFlags |= PLAYER_EXTRA_GM_ACCEPT_TICKETS;
+        else
+            m_ExtraFlags &= ~PLAYER_EXTRA_GM_ACCEPT_TICKETS;
+    }
 
     bool IsAcceptWhispers() const { return m_ExtraFlags & PLAYER_EXTRA_ACCEPT_WHISPERS; }
-    bool AcceptsWhispersFrom(ObjectGuid whisperer) const { return IsAcceptWhispers() || m_allowedWhispers.find(whisperer) != m_allowedWhispers.end(); }
+    bool AcceptsWhispersFrom(ObjectGuid whisperer) const
+    {
+        return IsAcceptWhispers() || m_allowedWhispers.find(whisperer) != m_allowedWhispers.end();
+    }
     void AddAllowedWhisperer(ObjectGuid whisperer) { m_allowedWhispers.insert(whisperer); }
     void ClearAllowedWhisperers() { m_allowedWhispers.clear(); }
-    void SetAcceptWhispers(bool on) { if(on) m_ExtraFlags |= PLAYER_EXTRA_ACCEPT_WHISPERS; else m_ExtraFlags &= ~PLAYER_EXTRA_ACCEPT_WHISPERS; }
+    void SetAcceptWhispers(bool on)
+    {
+        if (on)
+            m_ExtraFlags |= PLAYER_EXTRA_ACCEPT_WHISPERS;
+        else
+            m_ExtraFlags &= ~PLAYER_EXTRA_ACCEPT_WHISPERS;
+    }
 
     bool isGameMaster() const { return m_ExtraFlags & PLAYER_EXTRA_GM_ON; }
 
@@ -146,7 +165,6 @@ public:
     // TODO: Group ?
 
 protected:
-
     PlayerSocial* m_social;
     ActionButtonList m_actionButtons;
     WorldSession* m_session;

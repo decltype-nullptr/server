@@ -21,71 +21,73 @@ SDComment: Sometimes event bugs appear
 SDCategory: Ruins of Ahn'Qiraj
 EndScriptData */
 
-
-#include "scriptPCH.h"
 #include "ruins_of_ahnqiraj.h"
+#include "scriptPCH.h"
 
-#define GOSSIP_START  "Let's find out."
+#define GOSSIP_START "Let's find out."
 
 enum
 {
-    SAY_ANDOROV_READY   =   -1509003,
-    SAY_ANDOROV_INTRO2  =   -1509029,
-    SAY_ANDOROV_ATTACK  =   -1509030,
-    SAY_ANDOROV_INTRO   =   -1509004,
+    SAY_ANDOROV_READY  = -1509003,
+    SAY_ANDOROV_INTRO2 = -1509029,
+    SAY_ANDOROV_ATTACK = -1509030,
+    SAY_ANDOROV_INTRO  = -1509004,
 
-    SAY_WAVE3           =   -1509005,
-    SAY_WAVE4           =   -1509006,
-    SAY_WAVE5           =   -1509007,
-    SAY_WAVE6           =   -1509008,
-    SAY_WAVE7           =   -1509009,
-    SAY_WAVE8           =   -1509010,
+    SAY_WAVE3 = -1509005,
+    SAY_WAVE4 = -1509006,
+    SAY_WAVE5 = -1509007,
+    SAY_WAVE6 = -1509008,
+    SAY_WAVE7 = -1509009,
+    SAY_WAVE8 = -1509010,
 
-    SAY_UNK1            =   -1509011,
-    SAY_UNK2            =   -1509012,
-    SAY_UNK3            =   -1509013,
-    SAY_DEATH           =   -1509014,
+    SAY_UNK1  = -1509011,
+    SAY_UNK2  = -1509012,
+    SAY_UNK3  = -1509013,
+    SAY_DEATH = -1509014,
 
-    SAY_DEAGGRO         =   -1509015,
-    SAY_KILLS_ANDOROV   =   -1509016,
+    SAY_DEAGGRO       = -1509015,
+    SAY_KILLS_ANDOROV = -1509016,
 
-    SAY_AQ_WAR_START    =   -1509017, // Yell when realm complete quest 8743 for world event
-    EMOTE_FRENZY        =   -1000001,
+    SAY_AQ_WAR_START = -1509017, // Yell when realm complete quest 8743 for world event
+    EMOTE_FRENZY     = -1000001,
 
     // General Rajaxx
-    SPELL_DISARM            =   6713,
-    SPELL_FRENZY            =   8269,
-    SPELL_SUMMON_PLAYER     =   20477,
-    SPELL_THUNDERCRASH      =   25599,
-    SPELL_TRASH             =   3391,
+    SPELL_DISARM        = 6713,
+    SPELL_FRENZY        = 8269,
+    SPELL_SUMMON_PLAYER = 20477,
+    SPELL_THUNDERCRASH  = 25599,
+    SPELL_TRASH         = 3391,
 
-    SPELL_CHARGE            =   26561,
-    SPELL_REFLECT           =   9906,
-    SPELL_FEAR              =   19408,
-    SPELL_ENRAGE            =   28747,
+    SPELL_CHARGE  = 26561,
+    SPELL_REFLECT = 9906,
+    SPELL_FEAR    = 19408,
+    SPELL_ENRAGE  = 28747,
 
     // NPC General Andorov
-    SPELL_AURA_OF_COMMAND   =   25516,
-    SPELL_BASH              =   25515,
-    SPELL_STRIKE            =   22591,
+    SPELL_AURA_OF_COMMAND = 25516,
+    SPELL_BASH            = 25515,
+    SPELL_STRIKE          = 22591,
 
-    ZONE_SILITHUS           =   1377,
+    ZONE_SILITHUS = 1377,
 };
 
 #ifdef DEBUG_MODE
-#define DEBUG_EMOTE_YELL( crea, texte )     crea->MonsterYell( texte , 0)
+#define DEBUG_EMOTE_YELL(crea, texte) crea->MonsterYell(texte, 0)
 #define DELAY_BETWEEN_WAVE 30000
 #else
-#define DEBUG_EMOTE_YELL( crea, texte )
+#define DEBUG_EMOTE_YELL(crea, texte)
 #define DELAY_BETWEEN_WAVE 180000
 #endif
 
-#define ANDOROV_WAYPOINT_MAX  7
+#define ANDOROV_WAYPOINT_MAX 7
 #define OOC_BETWEEN_WAVE 1000
 
 struct RespawnAndEvadeHelper
 {
-    explicit RespawnAndEvadeHelper(Creature* _pCreature) : pCreature(_pCreature) {}
+    explicit RespawnAndEvadeHelper(Creature* _pCreature)
+        : pCreature(_pCreature)
+    {
+    }
     void operator()() const
     {
         if (!pCreature->isAlive())
@@ -97,7 +99,8 @@ struct RespawnAndEvadeHelper
 
 struct boss_rajaxxAI : public ScriptedAI
 {
-    boss_rajaxxAI(Creature* pCreature) : ScriptedAI(pCreature)
+    boss_rajaxxAI(Creature* pCreature)
+        : ScriptedAI(pCreature)
     {
         m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
         Reset();
@@ -117,16 +120,16 @@ struct boss_rajaxxAI : public ScriptedAI
     void Reset()
     {
         // Rajaxx's spells
-        m_uiResetAggro_Timer = 20000;
+        m_uiResetAggro_Timer   = 20000;
         m_uiThunderCrash_Timer = 25000;
-        m_uiDisarm_Timer = 5000;
-        m_bHasEnraged = false;
-        m_uiTrash_Timer = 30000;
+        m_uiDisarm_Timer       = 5000;
+        m_bHasEnraged          = false;
+        m_uiTrash_Timer        = 30000;
 
         // Waves reset
-        m_uiWave_Timer = 1000;
+        m_uiWave_Timer     = 1000;
         m_uiNextWave_Timer = 0;
-        m_uiNextWaveIndex = 0;
+        m_uiNextWaveIndex  = 0;
 
         if (m_pInstance)
         {
@@ -170,21 +173,11 @@ struct boss_rajaxxAI : public ScriptedAI
 
             switch (waveIndex)
             {
-                case 2:
-                    DoScriptText(SAY_WAVE3, m_creature);
-                    break;
-                case 3:
-                    DoScriptText(SAY_WAVE4, m_creature);
-                    break;
-                case 4:
-                    DoScriptText(SAY_WAVE5, m_creature);
-                    break;
-                case 5:
-                    DoScriptText(SAY_WAVE6, m_creature);
-                    break;
-                case 6:
-                    DoScriptText(SAY_WAVE7, m_creature);
-                    break;
+                case 2: DoScriptText(SAY_WAVE3, m_creature); break;
+                case 3: DoScriptText(SAY_WAVE4, m_creature); break;
+                case 4: DoScriptText(SAY_WAVE5, m_creature); break;
+                case 5: DoScriptText(SAY_WAVE6, m_creature); break;
+                case 6: DoScriptText(SAY_WAVE7, m_creature); break;
             }
         }
     }
@@ -198,29 +191,14 @@ struct boss_rajaxxAI : public ScriptedAI
 
         switch (waveIndex)
         {
-            case 0:
-                data = DATA_QEEZ;
-                break;
-            case 1:
-                data = DATA_TUUBID;
-                break;
-            case 2:
-                data = DATA_DRENN;
-                break;
-            case 3:
-                data = DATA_XURREM;
-                break;
-            case 4:
-                data = DATA_YEGGETH;
-                break;
-            case 5:
-                data = DATA_PAKKON;
-                break;
-            case 6:
-                data = DATA_ZERRAN;
-                break;
-            default:
-                return 0;
+            case 0: data = DATA_QEEZ; break;
+            case 1: data = DATA_TUUBID; break;
+            case 2: data = DATA_DRENN; break;
+            case 3: data = DATA_XURREM; break;
+            case 4: data = DATA_YEGGETH; break;
+            case 5: data = DATA_PAKKON; break;
+            case 6: data = DATA_ZERRAN; break;
+            default: return 0;
         }
         return m_pInstance->GetData64(data);
     }
@@ -241,7 +219,7 @@ struct boss_rajaxxAI : public ScriptedAI
         DoScriptText(SAY_DEATH, m_creature);
         if (m_pInstance)
             m_pInstance->SetData(TYPE_RAJAXX, DONE);
-        
+
         // According to http://wowwiki.wikia.com/wiki/Cenarion_Circle_reputation_guide
         // and http://wowwiki.wikia.com/wiki/General_Rajaxx,
         // When Rajaxx dies, players should gain 90 (post-"nerf" 150) reputation for each
@@ -249,13 +227,13 @@ struct boss_rajaxxAI : public ScriptedAI
         OnKillReputationReward();
     }
 
-    void KilledUnit(Unit *pKilled)
+    void KilledUnit(Unit* pKilled)
     {
-//        if (!m_creature->isInCombat())
-//            DoScriptText(SAY_DEAGGRO, m_creature, pKilled);
+        //        if (!m_creature->isInCombat())
+        //            DoScriptText(SAY_DEAGGRO, m_creature, pKilled);
     }
 
-    void DamageTaken(Unit* pDoneBy, uint32 &uiDamage)
+    void DamageTaken(Unit* pDoneBy, uint32& uiDamage)
     {
         // Frenzy
         if (!m_bHasEnraged && ((m_creature->GetHealth() * 100) / m_creature->GetMaxHealth()) < 30)
@@ -282,33 +260,38 @@ struct boss_rajaxxAI : public ScriptedAI
 
     void OnKillReputationReward()
     {
-        FactionEntry const *factionEntry = sFactionStore.LookupEntry(609); // Cenarion Circle
-        if (!factionEntry) {
+        FactionEntry const* factionEntry = sFactionStore.LookupEntry(609); // Cenarion Circle
+        if (!factionEntry)
+        {
             sLog.outError("Rajaxx justDied, unable to find Cenarion Circle faction");
             return;
         }
         std::list<Creature*> helpers;
-        GetCreatureListWithEntryInGrid(helpers, m_creature, { 15473, 15478, 15471, 987001 }, 400.0f);
-        
+        GetCreatureListWithEntryInGrid(helpers, m_creature, {15473, 15478, 15471, 987001}, 400.0f);
+
         if (!helpers.size())
             return;
         int alive = 0;
         for (auto it : helpers)
-            if (it->isAlive()) ++alive;
+            if (it->isAlive())
+                ++alive;
 
-        if (Player* pLootRecepient = m_creature->GetLootRecipient()) {
-            if (Group* pGroup = pLootRecepient->GetGroup()) {
-                for (GroupReference *itr = pGroup->GetFirstMember(); itr != NULL; itr = itr->next())
+        if (Player* pLootRecepient = m_creature->GetLootRecipient())
+        {
+            if (Group* pGroup = pLootRecepient->GetGroup())
+            {
+                for (GroupReference* itr = pGroup->GetFirstMember(); itr != NULL; itr = itr->next())
                 {
                     Player* pGroupGuy = itr->getSource();
                     if (!pGroupGuy || !pGroupGuy->IsInWorld())
                         continue;
 
-                    uint32 current_reputation_rank1 = pGroupGuy->GetReputationMgr().GetRank(factionEntry);
-                    if (factionEntry && current_reputation_rank1 <= 7) {
-                        for(int i = 0; i < alive; i++)
+                    uint32 current_reputation_rank1 =
+                        pGroupGuy->GetReputationMgr().GetRank(factionEntry);
+                    if (factionEntry && current_reputation_rank1 <= 7)
+                    {
+                        for (int i = 0; i < alive; i++)
                             pGroupGuy->GetReputationMgr().ModifyReputation(factionEntry, 90);
-
                     }
                 }
             }
@@ -398,7 +381,8 @@ struct boss_rajaxxAI : public ScriptedAI
 
 struct boss_rajaxxAQWarAI : public boss_rajaxxAI
 {
-    boss_rajaxxAQWarAI(Creature* pCreature) : boss_rajaxxAI(pCreature)
+    boss_rajaxxAQWarAI(Creature* pCreature)
+        : boss_rajaxxAI(pCreature)
     {
         m_pInstance = nullptr;
         Reset();
@@ -412,16 +396,16 @@ struct boss_rajaxxAQWarAI : public boss_rajaxxAI
 
         DoScriptText(SAY_AQ_WAR_START, m_creature);
 
-        chargeTargetNow = false;
-        uint32  spellReflectTimer = 60000;
-        uint32  AOEFearTimer = 45000;
+        chargeTargetNow          = false;
+        uint32 spellReflectTimer = 60000;
+        uint32 AOEFearTimer      = 45000;
     }
 
     bool chargeTargetNow;
     uint32 spellReflectTimer;
     uint32 AOEFearTimer;
 
-    void UpdateAI(uint32 uiDiff)
+    void UpdateAI(const uint32 uiDiff)
     {
         if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
             return;
@@ -430,7 +414,7 @@ struct boss_rajaxxAQWarAI : public boss_rajaxxAI
         if (m_uiResetAggro_Timer < uiDiff)
         {
             m_uiResetAggro_Timer = urand(9000, 12000);
-            chargeTargetNow = true;
+            chargeTargetNow      = true;
         }
         else
             m_uiResetAggro_Timer -= uiDiff;
@@ -471,7 +455,8 @@ struct boss_rajaxxAQWarAI : public boss_rajaxxAI
         // Disarm
         if (m_uiDisarm_Timer < uiDiff)
         {
-            if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_DISARM, CAST_AURA_NOT_PRESENT) == CAST_OK)
+            if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_DISARM, CAST_AURA_NOT_PRESENT) ==
+                CAST_OK)
                 m_uiDisarm_Timer = 15000;
         }
         else
@@ -494,13 +479,13 @@ struct boss_rajaxxAQWarAI : public boss_rajaxxAI
                 }
             }
         }
-
     }
 };
 
 struct npc_andorovAI : public ScriptedAI
 {
-    npc_andorovAI(Creature* pCreature) : ScriptedAI(pCreature)
+    npc_andorovAI(Creature* pCreature)
+        : ScriptedAI(pCreature)
     {
         m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
         Reset();
@@ -515,15 +500,15 @@ struct npc_andorovAI : public ScriptedAI
     void Reset()
     {
         m_uiCommandAura_Timer = 10000;
-        m_uiBash_Timer = 5000;
-        m_uiStrike_Timer = 15000;
+        m_uiBash_Timer        = 5000;
+        m_uiStrike_Timer      = 15000;
         m_creature->SetWalk(false);
 
         if (m_pInstance && m_pInstance->GetData(TYPE_RAJAXX) == NOT_STARTED)
             m_pInstance->SetData(TYPE_GENERAL_ANDOROV, NOT_STARTED);
     }
 
-    void JustDied(Unit *pKiller)
+    void JustDied(Unit* pKiller)
     {
         if (!m_pInstance)
             return;
@@ -595,7 +580,7 @@ struct npc_andorovAI : public ScriptedAI
 
         // Join battle if it started without us.
         if (m_pInstance->GetData(TYPE_RAJAXX) == IN_PROGRESS &&
-                m_pInstance->GetData(TYPE_GENERAL_ANDOROV) == NOT_STARTED)
+            m_pInstance->GetData(TYPE_GENERAL_ANDOROV) == NOT_STARTED)
             StartEvent();
 
         if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
@@ -634,13 +619,17 @@ struct npc_andorovAI : public ScriptedAI
 
 bool GossipHello_npc_andorov(Player* pPlayer, Creature* pCreature)
 {
-    pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_START , GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
+    pPlayer->ADD_GOSSIP_ITEM(
+        GOSSIP_ICON_CHAT, GOSSIP_START, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
     pPlayer->SEND_GOSSIP_MENU(14442, pCreature->GetGUID());
 
     return true;
 }
 
-bool GossipSelect_npc_andorov(Player* pPlayer, Creature* pCreature, uint32 uiSender, uint32 uiAction)
+bool GossipSelect_npc_andorov(Player* pPlayer,
+                              Creature* pCreature,
+                              uint32 uiSender,
+                              uint32 uiAction)
 {
     switch (uiAction)
     {
@@ -648,11 +637,8 @@ bool GossipSelect_npc_andorov(Player* pPlayer, Creature* pCreature, uint32 uiSen
             pPlayer->CLOSE_GOSSIP_MENU();
             ((npc_andorovAI*)pCreature->AI())->StartEvent();
             break;
-        case GOSSIP_ACTION_TRADE:
-            pPlayer->SEND_VENDORLIST(pCreature->GetGUID());
-            break;
-        default:
-            break;
+        case GOSSIP_ACTION_TRADE: pPlayer->SEND_VENDORLIST(pCreature->GetGUID()); break;
+        default: break;
     }
 
     return true;
@@ -675,15 +661,15 @@ void AddSC_boss_rajaxx()
 {
     Script* newscript;
 
-    newscript = new Script;
-    newscript->Name = "npc_andorov";
-    newscript->GetAI = &GetAI_npc_andorov;
-    newscript->pGossipHello = &GossipHello_npc_andorov;
+    newscript                = new Script;
+    newscript->Name          = "npc_andorov";
+    newscript->GetAI         = &GetAI_npc_andorov;
+    newscript->pGossipHello  = &GossipHello_npc_andorov;
     newscript->pGossipSelect = &GossipSelect_npc_andorov;
     newscript->RegisterSelf();
 
-    newscript = new Script;
-    newscript->Name = "boss_rajaxx";
+    newscript        = new Script;
+    newscript->Name  = "boss_rajaxx";
     newscript->GetAI = &GetAI_boss_rajaxx;
     newscript->RegisterSelf();
 }

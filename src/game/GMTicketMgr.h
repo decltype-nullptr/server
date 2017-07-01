@@ -35,18 +35,18 @@ enum GMTicketSystemStatus
 
 enum GMTicketStatus
 {
-    GMTICKET_STATUS_HASTEXT                      = 0x06,
-    GMTICKET_STATUS_DEFAULT                      = 0x0A
+    GMTICKET_STATUS_HASTEXT = 0x06,
+    GMTICKET_STATUS_DEFAULT = 0x0A
 };
 
 enum GMTicketResponse
 {
-    GMTICKET_RESPONSE_ALREADY_EXIST               = 1,
-    GMTICKET_RESPONSE_CREATE_SUCCESS              = 2,
-    GMTICKET_RESPONSE_CREATE_ERROR                = 3,
-    GMTICKET_RESPONSE_UPDATE_SUCCESS              = 4,
-    GMTICKET_RESPONSE_UPDATE_ERROR                = 5,
-    GMTICKET_RESPONSE_TICKET_DELETED              = 9
+    GMTICKET_RESPONSE_ALREADY_EXIST  = 1,
+    GMTICKET_RESPONSE_CREATE_SUCCESS = 2,
+    GMTICKET_RESPONSE_CREATE_ERROR   = 3,
+    GMTICKET_RESPONSE_UPDATE_SUCCESS = 4,
+    GMTICKET_RESPONSE_UPDATE_ERROR   = 5,
+    GMTICKET_RESPONSE_TICKET_DELETED = 9
 };
 
 // from Blizzard LUA:
@@ -56,27 +56,27 @@ enum GMTicketResponse
 // 3 is a custom value and should never actually be sent
 enum GMTicketEscalationStatus
 {
-    TICKET_UNASSIGNED                             = 0,
-    TICKET_ASSIGNED                               = 1,
-    TICKET_IN_ESCALATION_QUEUE                    = 2,
-    TICKET_ESCALATED_ASSIGNED                     = 3
+    TICKET_UNASSIGNED          = 0,
+    TICKET_ASSIGNED            = 1,
+    TICKET_IN_ESCALATION_QUEUE = 2,
+    TICKET_ESCALATED_ASSIGNED  = 3
 };
 
 // from blizzard lua
 enum GMTicketOpenedByGMStatus
 {
-    GMTICKET_OPENEDBYGM_STATUS_NOT_OPENED = 0,      // ticket has never been opened by a gm
-    GMTICKET_OPENEDBYGM_STATUS_OPENED     = 1       // ticket has been opened by a gm
+    GMTICKET_OPENEDBYGM_STATUS_NOT_OPENED = 0, // ticket has never been opened by a gm
+    GMTICKET_OPENEDBYGM_STATUS_OPENED     = 1  // ticket has been opened by a gm
 };
 
 enum LagReportType
 {
-    LAG_REPORT_TYPE_LOOT = 1,
+    LAG_REPORT_TYPE_LOOT          = 1,
     LAG_REPORT_TYPE_AUCTION_HOUSE = 2,
-    LAG_REPORT_TYPE_MAIL = 3,
-    LAG_REPORT_TYPE_CHAT = 4,
-    LAG_REPORT_TYPE_MOVEMENT = 5,
-    LAG_REPORT_TYPE_SPELL = 6
+    LAG_REPORT_TYPE_MAIL          = 3,
+    LAG_REPORT_TYPE_CHAT          = 4,
+    LAG_REPORT_TYPE_MOVEMENT      = 5,
+    LAG_REPORT_TYPE_SPELL         = 6
 };
 
 class GmTicket
@@ -111,7 +111,10 @@ public:
     uint64 GetLastModifiedTime() const { return _lastModifiedTime; }
     GMTicketEscalationStatus GetEscalatedStatus() const { return _escalatedStatus; }
 
-    void SetEscalatedStatus(GMTicketEscalationStatus escalatedStatus) { _escalatedStatus = escalatedStatus; }
+    void SetEscalatedStatus(GMTicketEscalationStatus escalatedStatus)
+    {
+        _escalatedStatus = escalatedStatus;
+    }
     void SetAssignedTo(ObjectGuid guid, bool isAdmin)
     {
         _assignedTo = guid;
@@ -124,7 +127,7 @@ public:
     void SetCompleted() { _completed = true; }
     void SetMessage(std::string const& message)
     {
-        _message = message;
+        _message          = message;
         _lastModifiedTime = uint64(time(NULL));
     }
     void SetComment(std::string const& comment) { _comment = comment; }
@@ -145,7 +148,12 @@ public:
 
     void TeleportTo(Player* player) const;
     std::string FormatMessageString(ChatHandler& handler, bool detailed = false) const;
-    std::string FormatMessageString(ChatHandler& handler, const char* szClosedName, const char* szAssignedToName, const char* szUnassignedName, const char* szDeletedName, const char* szCompletedName) const;
+    std::string FormatMessageString(ChatHandler& handler,
+                                    const char* szClosedName,
+                                    const char* szAssignedToName,
+                                    const char* szUnassignedName,
+                                    const char* szDeletedName,
+                                    const char* szCompletedName) const;
 
     void SetChatLog(std::list<uint32> time, std::string const& log);
     std::string const& GetChatLog() const { return _chatLog; }
@@ -155,6 +163,7 @@ public:
 
     void SetNeededSecurityLevel(uint8 sec) { _securityNeeded = sec; }
     uint8 GetNeededSecurityLevel() const { return _securityNeeded; }
+
 private:
     uint32 _id;
     ObjectGuid _playerGuid;
@@ -166,7 +175,8 @@ private:
     std::string _message;
     uint64 _createTime;
     uint64 _lastModifiedTime;
-    ObjectGuid _closedBy; // 0 = Open, -1 = Console, playerGuid = player abandoned ticket, other = GM who closed it.
+    ObjectGuid _closedBy; // 0 = Open, -1 = Console, playerGuid = player abandoned ticket, other =
+                          // GM who closed it.
     ObjectGuid _assignedTo;
     std::string _comment;
     bool _completed;
@@ -208,7 +218,8 @@ public:
 
     GmTicket* GetTicketByPlayer(ObjectGuid playerGuid)
     {
-        for (GmTicketList::const_iterator itr = _ticketList.begin(); itr != _ticketList.end(); ++itr)
+        for (GmTicketList::const_iterator itr = _ticketList.begin(); itr != _ticketList.end();
+             ++itr)
             if (itr->second && itr->second->IsFromPlayer(playerGuid) && !itr->second->IsClosed())
                 return itr->second;
 
@@ -217,7 +228,8 @@ public:
 
     GmTicket* GetOldestOpenTicket()
     {
-        for (GmTicketList::const_iterator itr = _ticketList.begin(); itr != _ticketList.end(); ++itr)
+        for (GmTicketList::const_iterator itr = _ticketList.begin(); itr != _ticketList.end();
+             ++itr)
             if (itr->second && !itr->second->IsClosed() && !itr->second->IsCompleted())
                 return itr->second;
 
@@ -226,7 +238,8 @@ public:
 
     GmTicket* GetNextTicket(uint32 counter)
     {
-        for (GmTicketList::const_iterator itr = _ticketList.begin(); itr != _ticketList.end(); ++itr)
+        for (GmTicketList::const_iterator itr = _ticketList.begin(); itr != _ticketList.end();
+             ++itr)
             if (itr->first > counter && !itr->second->IsClosed() && !itr->second->IsCompleted())
                 return itr->second;
 
@@ -235,7 +248,9 @@ public:
 
     GmTicket* GetPreviousTicket(uint32 counter)
     {
-        for (GmTicketList::const_reverse_iterator itr = _ticketList.rbegin(); itr != _ticketList.rend(); ++itr)
+        for (GmTicketList::const_reverse_iterator itr = _ticketList.rbegin();
+             itr != _ticketList.rend();
+             ++itr)
             if (itr->first < counter && !itr->second->IsClosed() && !itr->second->IsCompleted())
                 return itr->second;
 
@@ -266,14 +281,14 @@ public:
 
     void SendTicket(WorldSession* session, GmTicket* ticket) const;
     void ReloadTicket(uint32 ticketId);
-    void ReloadTicketCallback(QueryResult* holder);
+    void ReloadTicketCallback(const std::shared_ptr<QueryResult>& holder);
 
 protected:
     void _RemoveTicket(uint32 ticketId, int64 source = -1, bool permanently = false);
 
     GmTicketList _ticketList;
 
-    bool   _status;
+    bool _status;
     uint32 _lastTicketId;
     uint32 _lastSurveyId;
     uint32 _openTicketCount;

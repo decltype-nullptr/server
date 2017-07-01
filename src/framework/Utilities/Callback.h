@@ -22,7 +22,9 @@
 #ifndef MANGOS_CALLBACK_H
 #define MANGOS_CALLBACK_H
 
-//defines to simplify multi param templates code and readablity
+#include <memory>
+
+// defines to simplify multi param templates code and readablity
 #define TYPENAMES_1 typename T1
 #define TYPENAMES_2 TYPENAMES_1, typename T2
 #define TYPENAMES_3 TYPENAMES_2, typename T3
@@ -45,266 +47,80 @@
 #define PARAMS_9 PARAMS_8, T9 param9
 #define PARAMS_10 PARAMS_9, T10 param10
 
-//empty struct to use in templates instead of void type
-struct null { null() {} };
+// empty struct to use in templates instead of void type
+struct null
+{
+    null() {}
+};
 /// ------------ BASE CLASSES ------------
+
+#define HAS_VARIADIC_TEMPLATES 1
 
 namespace MaNGOS
 {
-    template<class Class, typename ParamType1 = void, typename ParamType2 = void, typename ParamType3 = void, typename ParamType4 = void>
+    template <typename Class, typename... Args>
     class _Callback
     {
-        protected:
+    protected:
+        using Method = void (Class::*)(Args...);
 
-            typedef void (Class::*Method)(ParamType1, ParamType2, ParamType3, ParamType4);
-            Class *m_object;
-            Method m_method;
-            ParamType1 m_param1;
-            ParamType2 m_param2;
-            ParamType3 m_param3;
-            ParamType4 m_param4;
-            void _Execute() { (m_object->*m_method)(m_param1, m_param2, m_param3, m_param4); }
+        Class* m_object;
+        Method m_method;
+        std::tuple<Args...> m_params;
 
-        public:
+        void _Execute() const { _Unwrap(std::index_sequence_for<Args...>{}); }
 
-            _Callback(Class *object, Method method, ParamType1 param1, ParamType2 param2, ParamType3 param3, ParamType4 param4)
-                : m_object(object), m_method(method),
-                m_param1(param1), m_param2(param2), m_param3(param3), m_param4(param4)
-            {
-            }
+        template <size_t... Index>
+        void _Unwrap(std::index_sequence<Index...>) const
+        {
+            (m_object->*m_method)(std::get<Index>(m_params)...);
+        }
 
-            _Callback(_Callback<Class, ParamType1, ParamType2, ParamType3, ParamType4> const& cb)
-                : m_object(cb.m_object), m_method(cb.m_method),
-                m_param1(cb.m_param1), m_param2(cb.m_param2), m_param3(cb.m_param3), m_param4(cb.m_param4)
-            {
-            }
+    public:
+        explicit _Callback(Class* object, Method method, Args... params)
+            : m_object(object)
+            , m_method(method)
+            , m_params(params...)
+        {
+        }
+
+        _Callback(_Callback&& other)
+            : m_object(std::move(other.m_object))
+            , m_method(std::move(other.m_method))
+            , m_params(std::move(other.m_params))
+        {
+        }
     };
 
-    template<class Class, typename ParamType1, typename ParamType2, typename ParamType3>
-    class _Callback<Class, ParamType1, ParamType2, ParamType3>
-    {
-        protected:
-
-            typedef void (Class::*Method)(ParamType1, ParamType2, ParamType3);
-            Class *m_object;
-            Method m_method;
-            ParamType1 m_param1;
-            ParamType2 m_param2;
-            ParamType3 m_param3;
-            void _Execute() { (m_object->*m_method)(m_param1, m_param2, m_param3); }
-
-        public:
-            _Callback(Class *object, Method method, ParamType1 param1, ParamType2 param2, ParamType3 param3)
-                : m_object(object), m_method(method),
-                m_param1(param1), m_param2(param2), m_param3(param3)
-            {
-            }
-
-            _Callback(_Callback<Class, ParamType1, ParamType2, ParamType3> const& cb)
-                : m_object(cb.m_object), m_method(cb.m_method),
-                m_param1(cb.m_param1), m_param2(cb.m_param2), m_param3(cb.m_param3)
-            {
-            }
-    };
-
-    template<class Class, typename ParamType1, typename ParamType2>
-    class _Callback<Class, ParamType1, ParamType2>
-    {
-        protected:
-
-            typedef void (Class::*Method)(ParamType1, ParamType2);
-            Class *m_object;
-            Method m_method;
-            ParamType1 m_param1;
-            ParamType2 m_param2;
-            void _Execute() { (m_object->*m_method)(m_param1, m_param2); }
-
-        public:
-
-            _Callback(Class *object, Method method, ParamType1 param1, ParamType2 param2)
-                : m_object(object), m_method(method),
-                m_param1(param1), m_param2(param2)
-            {
-            }
-
-            _Callback(_Callback<Class, ParamType1, ParamType2> const& cb)
-                : m_object(cb.m_object), m_method(cb.m_method),
-                m_param1(cb.m_param1), m_param2(cb.m_param2)
-            {
-            }
-    };
-
-    template<class Class, typename ParamType1>
-    class _Callback<Class, ParamType1>
-    {
-        protected:
-
-            typedef void (Class::*Method)(ParamType1);
-            Class *m_object;
-            Method m_method;
-            ParamType1 m_param1;
-            void _Execute() { (m_object->*m_method)(m_param1); }
-
-        public:
-
-            _Callback(Class *object, Method method, ParamType1 param1)
-                : m_object(object), m_method(method),
-                m_param1(param1)
-            {
-            }
-
-            _Callback(_Callback<Class, ParamType1> const& cb)
-                : m_object(cb.m_object), m_method(cb.m_method),
-                m_param1(cb.m_param1)
-            {
-            }
-    };
-
-    template<class Class>
-    class _Callback<Class>
-    {
-        protected:
-
-            typedef void (Class::*Method)();
-            Class *m_object;
-            Method m_method;
-            void _Execute() { (m_object->*m_method)(); }
-
-        public:
-            _Callback(Class *object, Method method)
-                : m_object(object), m_method(method)
-            {
-            }
-            _Callback(_Callback<Class> const& cb)
-                : m_object(cb.m_object), m_method(cb.m_method)
-            {
-            }
-    };
-
-    /// ---- Statics ----
-
-    template<typename ParamType1 = void, typename ParamType2 = void, typename ParamType3 = void, typename ParamType4 = void>
+    template <typename... Args>
     class _SCallback
     {
-        protected:
+    protected:
+        using Method = void (*)(Args...);
 
-            typedef void (*Method)(ParamType1, ParamType2, ParamType3, ParamType4);
-            Method m_method;
-            ParamType1 m_param1;
-            ParamType2 m_param2;
-            ParamType3 m_param3;
-            ParamType4 m_param4;
-            void _Execute() { (*m_method)(m_param1, m_param2, m_param3, m_param4); }
+        Method m_method;
+        std::tuple<Args...> m_params;
 
-        public:
+        void _Execute() const { _Unwrap(std::index_sequence_for<Args...>{}); }
 
-            _SCallback(Method method, ParamType1 param1, ParamType2 param2, ParamType3 param3, ParamType4 param4)
-                : m_method(method),
-                m_param1(param1), m_param2(param2), m_param3(param3), m_param4(param4)
-            {
-            }
+        template <size_t... Index>
+        void _Unwrap(std::index_sequence<Index...>) const
+        {
+            (*m_method)(std::get<Index>(m_params)...);
+        }
 
-            _SCallback(_SCallback<ParamType1, ParamType2, ParamType3, ParamType4> const& cb)
-                : m_method(cb.m_method),
-                m_param1(cb.m_param1), m_param2(cb.m_param2), m_param3(cb.m_param3), m_param4(cb.m_param4)
-            {
-            }
-    };
+    public:
+        explicit _SCallback(Method method, Args... params)
+            : m_method(method)
+            , m_params(params...)
+        {
+        }
 
-    template<typename ParamType1, typename ParamType2, typename ParamType3>
-    class _SCallback<ParamType1, ParamType2, ParamType3>
-    {
-        protected:
-
-            typedef void (*Method)(ParamType1, ParamType2, ParamType3);
-            Method m_method;
-            ParamType1 m_param1;
-            ParamType2 m_param2;
-            ParamType3 m_param3;
-            void _Execute() { (*m_method)(m_param1, m_param2, m_param3); }
-
-        public:
-            _SCallback(Method method, ParamType1 param1, ParamType2 param2, ParamType3 param3)
-                : m_method(method),
-                m_param1(param1), m_param2(param2), m_param3(param3)
-            {
-            }
-            _SCallback(_SCallback<ParamType1, ParamType2, ParamType3> const& cb)
-                : m_method(cb.m_method),
-                m_param1(cb.m_param1), m_param2(cb.m_param2), m_param3(cb.m_param3)
-            {
-            }
-    };
-
-    template<typename ParamType1, typename ParamType2>
-    class _SCallback<ParamType1, ParamType2>
-    {
-        protected:
-
-            typedef void (*Method)(ParamType1, ParamType2);
-            Method m_method;
-            ParamType1 m_param1;
-            ParamType2 m_param2;
-            void _Execute() { (*m_method)(m_param1, m_param2); }
-
-        public:
-            _SCallback(Method method, ParamType1 param1, ParamType2 param2)
-                : m_method(method),
-                m_param1(param1), m_param2(param2)
-            {
-            }
-
-            _SCallback(_SCallback<ParamType1, ParamType2> const& cb)
-                : m_method(cb.m_method),
-                m_param1(cb.m_param1), m_param2(cb.m_param2)
-            {
-            }
-    };
-
-    template<typename ParamType1>
-    class _SCallback<ParamType1>
-    {
-        protected:
-
-            typedef void (*Method)(ParamType1);
-            Method m_method;
-            ParamType1 m_param1;
-            void _Execute() { (*m_method)(m_param1); }
-
-        public:
-            _SCallback(Method method, ParamType1 param1)
-                : m_method(method),
-                m_param1(param1)
-            {
-            }
-
-            _SCallback(_SCallback<ParamType1> const& cb)
-                : m_method(cb.m_method),
-                m_param1(cb.m_param1)
-            {
-            }
-    };
-
-    template<>
-    class _SCallback<>
-    {
-        protected:
-
-            typedef void (*Method)();
-            Method m_method;
-            void _Execute() { (*m_method)(); }
-
-        public:
-
-            _SCallback(Method method)
-                : m_method(method)
-            {
-            }
-
-            _SCallback(_SCallback<> const& cb)
-                : m_method(cb.m_method)
-            {
-            }
+        _SCallback(_SCallback&& other)
+            : m_method(std::move(other.m_method))
+            , m_params(std::move(other.m_params))
+        {
+        }
     };
 }
 
@@ -314,94 +130,36 @@ namespace MaNGOS
 {
     class ICallback
     {
-        public:
-
-            virtual void Execute() = 0;
-            virtual ~ICallback() {}
+    public:
+        virtual void Execute() = 0;
+        virtual ~ICallback() {}
     };
 
-    template<class CB>
+    template <class CB>
     class _ICallback : public CB, public ICallback
     {
-        public:
+    public:
+        _ICallback(CB&& cb)
+            : CB(std::move(cb))
+        {
+        }
 
-            _ICallback(CB const& cb) : CB(cb)
-            {
-            }
-
-            void Execute() { CB::_Execute(); }
+        void Execute() { CB::_Execute(); }
     };
 
-    template<class Class, typename ParamType1 = void, typename ParamType2 = void, typename ParamType3 = void, typename ParamType4 = void>
-    class Callback : public _ICallback<_Callback<Class, ParamType1, ParamType2, ParamType3, ParamType4> >
+    template <typename Class, typename... Args>
+    class Callback : public _ICallback<_Callback<Class, Args...>>
     {
-        private:
+    private:
+        using TCallback = _Callback<Class, Args...>;
+        using Super     = _ICallback<TCallback>;
+        using Method    = typename TCallback::Method;
 
-            typedef _Callback<Class, ParamType1, ParamType2, ParamType3, ParamType4> C4;
-        public:
-
-            Callback(Class *object, typename C4::Method method, ParamType1 param1, ParamType2 param2, ParamType3 param3, ParamType4 param4)
-                : _ICallback<C4>(C4(object, method, param1, param2, param3, param4))
-            {
-            }
-    };
-
-    template<class Class, typename ParamType1, typename ParamType2, typename ParamType3>
-    class Callback<Class, ParamType1, ParamType2, ParamType3> : public _ICallback<_Callback<Class, ParamType1, ParamType2, ParamType3> >
-    {
-        private:
-
-            typedef _Callback<Class, ParamType1, ParamType2, ParamType3> C3;
-        public:
-
-            Callback(Class *object, typename C3::Method method, ParamType1 param1, ParamType2 param2, ParamType3 param3)
-                : _ICallback<C3>(C3(object, method, param1, param2, param3))
-            {
-            }
-    };
-
-    template<class Class, typename ParamType1, typename ParamType2>
-    class Callback<Class, ParamType1, ParamType2> : public _ICallback<_Callback<Class, ParamType1, ParamType2> >
-    {
-        private:
-
-            typedef _Callback<Class, ParamType1, ParamType2> C2;
-
-        public:
-            Callback(Class *object, typename C2::Method method, ParamType1 param1, ParamType2 param2)
-                : _ICallback<C2>(C2(object, method, param1, param2))
-            {
-            }
-    };
-
-    template<class Class, typename ParamType1>
-    class Callback<Class, ParamType1> : public _ICallback<_Callback<Class, ParamType1> >
-    {
-        private:
-
-            typedef _Callback<Class, ParamType1> C1;
-
-        public:
-
-            Callback(Class *object, typename C1::Method method, ParamType1 param1)
-                : _ICallback<C1>(C1(object, method, param1))
-            {
-            }
-    };
-
-    template<class Class>
-    class Callback<Class> : public _ICallback<_Callback<Class> >
-    {
-        private:
-
-            typedef _Callback<Class> C0;
-
-        public:
-
-            Callback(Class *object, typename C0::Method method)
-                : _ICallback<C0>(C0(object, method))
-            {
-            }
+    public:
+        Callback(Class* object, Method method, Args... params)
+            : Super(TCallback(object, method, params...))
+        {
+        }
     };
 }
 
@@ -413,149 +171,71 @@ namespace MaNGOS
 {
     class IQueryCallback
     {
-        public:
-            IQueryCallback() : threadSafe(true) {}
-            virtual void Execute() = 0;
-            virtual ~IQueryCallback() {}
-            virtual void SetResult(QueryResult* result) = 0;
-            virtual QueryResult* GetResult() = 0;
-            bool IsThreadSafe() const { return threadSafe; }
-            bool threadSafe;
+    public:
+        IQueryCallback()
+            : threadSafe(true)
+        {
+        }
+        virtual void Execute() = 0;
+        virtual ~IQueryCallback() {}
+        virtual void SetResult(std::shared_ptr<QueryResult> result) = 0;
+        virtual std::shared_ptr<QueryResult> GetResult() const      = 0;
+        bool IsThreadSafe() const { return threadSafe; }
+        bool threadSafe;
     };
 
-    template<class CB>
+    template <class CB>
     class _IQueryCallback : public CB, public IQueryCallback
     {
-        public:
+    public:
+        _IQueryCallback(CB&& cb)
+            : CB(std::move(cb))
+        {
+        }
 
-            _IQueryCallback(CB const& cb) : CB(cb)
-            {
-            }
+        void Execute() { CB::_Execute(); }
 
-            void Execute() { CB::_Execute(); }
-            void SetResult(QueryResult* result) { CB::m_param1 = result; }
-            QueryResult* GetResult() { return CB::m_param1; }
+        void SetResult(std::shared_ptr<QueryResult> result)
+        {
+            const_cast<std::shared_ptr<QueryResult>&>(std::get<0>(CB::m_params)) = result;
+        }
+
+        std::shared_ptr<QueryResult> GetResult() const { return std::get<0>(CB::m_params); }
     };
 
-    template<class Class, typename ParamType1 = void, typename ParamType2 = void, typename ParamType3 = void>
-    class QueryCallback : public _IQueryCallback<_Callback<Class, QueryResult*, ParamType1, ParamType2, ParamType3> >
+    template <typename Class, typename... Args>
+    class QueryCallback
+        : public _IQueryCallback<_Callback<Class, const std::shared_ptr<QueryResult>&, Args...>>
     {
-        private:
+    private:
+        using TCallback = _Callback<Class, const std::shared_ptr<QueryResult>&, Args...>;
+        using Super     = _IQueryCallback<TCallback>;
+        using Method    = typename TCallback::Method;
 
-            typedef _Callback<Class, QueryResult*, ParamType1, ParamType2, ParamType3> QC3;
-
-        public:
-
-            QueryCallback(Class *object, typename QC3::Method method, QueryResult* result, ParamType1 param1, ParamType2 param2, ParamType3 param3)
-                : _IQueryCallback<QC3>(QC3(object, method, result, param1, param2, param3))
-            {
-            }
+    public:
+        QueryCallback(Class* object,
+                      Method method,
+                      const std::shared_ptr<QueryResult>& result,
+                      Args... params)
+            : Super(TCallback(object, method, result, params...))
+        {
+        }
     };
 
-    template<class Class, typename ParamType1, typename ParamType2>
-    class QueryCallback<Class, ParamType1, ParamType2> : public _IQueryCallback<_Callback<Class, QueryResult*, ParamType1, ParamType2> >
+    template <typename... Args>
+    class SQueryCallback
+        : public _IQueryCallback<_SCallback<const std::shared_ptr<QueryResult>&, Args...>>
     {
-        private:
+    private:
+        using TCallback = _SCallback<const std::shared_ptr<QueryResult>&, Args...>;
+        using Super     = _IQueryCallback<TCallback>;
+        using Method    = typename TCallback::Method;
 
-            typedef _Callback<Class, QueryResult*, ParamType1, ParamType2> QC2;
-
-        public:
-
-            QueryCallback(Class *object, typename QC2::Method method, QueryResult* result, ParamType1 param1, ParamType2 param2)
-                : _IQueryCallback<QC2>(QC2(object, method, result, param1, param2))
-            {
-            }
-    };
-
-    template<class Class, typename ParamType1>
-    class QueryCallback<Class, ParamType1> : public _IQueryCallback<_Callback<Class, QueryResult*, ParamType1> >
-    {
-        private:
-
-            typedef _Callback<Class, QueryResult*, ParamType1> QC1;
-
-        public:
-
-            QueryCallback(Class *object, typename QC1::Method method, QueryResult* result, ParamType1 param1)
-                : _IQueryCallback<QC1>(QC1(object, method, result, param1))
-            {
-            }
-    };
-
-    template<class Class>
-    class QueryCallback<Class> : public _IQueryCallback<_Callback<Class, QueryResult*> >
-    {
-        private:
-
-            typedef _Callback<Class, QueryResult*> QC0;
-
-        public:
-            QueryCallback(Class *object, typename QC0::Method method, QueryResult* result)
-                : _IQueryCallback<QC0>(QC0(object, method, result))
-            {
-            }
-    };
-
-    /// ---- Statics ----
-
-    template<typename ParamType1 = void, typename ParamType2 = void, typename ParamType3 = void>
-    class SQueryCallback : public _IQueryCallback<_SCallback<QueryResult*, ParamType1, ParamType2, ParamType3> >
-    {
-        private:
-
-            typedef _SCallback<QueryResult*, ParamType1, ParamType2, ParamType3> QC3;
-
-        public:
-
-            SQueryCallback(typename QC3::Method method, QueryResult* result, ParamType1 param1, ParamType2 param2, ParamType3 param3)
-                : _IQueryCallback<QC3>(QC3(method, result, param1, param2, param3))
-            {
-            }
-    };
-
-    template<typename ParamType1, typename ParamType2>
-    class SQueryCallback < ParamType1, ParamType2 > : public _IQueryCallback<_SCallback<QueryResult*, ParamType1, ParamType2> >
-    {
-        private:
-
-            typedef _SCallback<QueryResult*, ParamType1, ParamType2> QC2;
-
-        public:
-
-            SQueryCallback(typename QC2::Method method, QueryResult* result, ParamType1 param1, ParamType2 param2)
-                : _IQueryCallback<QC2>(QC2(method, result, param1, param2))
-            {
-            }
-    };
-
-    template<typename ParamType1>
-    class SQueryCallback<ParamType1> : public _IQueryCallback<_SCallback<QueryResult*, ParamType1> >
-    {
-        private:
-
-            typedef _SCallback<QueryResult*, ParamType1> QC1;
-
-        public:
-
-            SQueryCallback(typename QC1::Method method, QueryResult* result, ParamType1 param1)
-                : _IQueryCallback<QC1>(QC1(method, result, param1))
-            {
-            }
-    };
-
-    template<>
-    class SQueryCallback<> : public _IQueryCallback<_SCallback<QueryResult*> >
-    {
-        private:
-
-            typedef _SCallback<QueryResult*> QC0;
-
-        public:
-
-            SQueryCallback(QC0::Method method, QueryResult* result)
-                : _IQueryCallback<QC0>(QC0(method, result))
-            {
-            }
+    public:
+        SQueryCallback(Method method, const std::shared_ptr<QueryResult>& result, Args... params)
+            : Super(TCallback(method, result, params...))
+        {
+        }
     };
 }
 

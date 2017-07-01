@@ -21,6 +21,7 @@
 
 #include "InstanceData.h"
 #include "Database/DatabaseEnv.h"
+#include "Database/DatabaseImpl.h"
 #include "Map.h"
 
 void InstanceData::SaveToDB()
@@ -36,14 +37,24 @@ void InstanceData::SaveToDB()
     CharacterDatabase.escape_string(data);
 
     if (instance->Instanceable())
-        CharacterDatabase.PExecute("UPDATE instance SET data = '%s' WHERE id = '%u'", data.c_str(), instance->GetInstanceId());
+        CharacterDatabase.PExecute("UPDATE instance SET data = '%s' WHERE id = '%u'",
+                                   data.c_str(),
+                                   instance->GetInstanceId());
     else
-        CharacterDatabase.PExecute("UPDATE world SET data = '%s' WHERE map = '%u'", data.c_str(), instance->GetId());
+        CharacterDatabase.PExecute(
+            "UPDATE world SET data = '%s' WHERE map = '%u'", data.c_str(), instance->GetId());
 }
 
-bool InstanceData::CheckConditionCriteriaMeet(Player const* /*player*/, uint32 map_id, WorldObject const* source, uint32 instance_condition_id) const
+bool InstanceData::CheckConditionCriteriaMeet(Player const* /*player*/,
+                                              uint32 map_id,
+                                              WorldObject const* source,
+                                              uint32 instance_condition_id) const
 {
-    sLog.outError("Condition system call InstanceData::CheckConditionCriteriaMeet but instance script for map %u not have implementation for player condition criteria with internal id %u for map %u",
-                  instance->GetId(), instance_condition_id, map_id);
+    sLog.outError("Condition system call InstanceData::CheckConditionCriteriaMeet but instance "
+                  "script for map %u not have implementation for player condition criteria with "
+                  "internal id %u for map %u",
+                  instance->GetId(),
+                  instance_condition_id,
+                  map_id);
     return false;
 }

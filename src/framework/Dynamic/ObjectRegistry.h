@@ -23,89 +23,90 @@
 #define MANGOS_OBJECTREGISTRY_H
 
 #include "Platform/Define.h"
-#include "Utilities/UnorderedMapSet.h"
 #include "Policies/Singleton.h"
+#include "Utilities/UnorderedMapSet.h"
 
+#include <map>
 #include <string>
 #include <vector>
-#include <map>
 
 /** ObjectRegistry holds all registry item of the same type
  */
-template<class T, class Key = std::string>
+template <class T, class Key = std::string>
 class MANGOS_DLL_DECL ObjectRegistry
 {
-    public:
-        typedef std::map<Key, T *> RegistryMapType;
+public:
+    typedef std::map<Key, T*> RegistryMapType;
 
-        /// Returns a registry item
-        const T* GetRegistryItem(Key key) const
+    /// Returns a registry item
+    const T* GetRegistryItem(Key key) const
+    {
+        const auto& iter = i_registeredObjects.find(key);
+        return (iter == i_registeredObjects.end() ? NULL : iter->second);
+    }
+
+    /// Inserts a registry item
+    bool InsertItem(T* obj, Key key, bool replace = false)
+    {
+        const auto& iter = i_registeredObjects.find(key);
+        if (iter != i_registeredObjects.end())
         {
-            typename RegistryMapType::const_iterator iter = i_registeredObjects.find(key);
-            return( iter == i_registeredObjects.end() ? NULL : iter->second );
+            if (!replace)
+                return false;
+            delete iter->second;
+            i_registeredObjects.erase(iter);
         }
 
-        /// Inserts a registry item
-        bool InsertItem(T *obj, Key key, bool replace = false)
+        i_registeredObjects[ key ] = obj;
+        return true;
+    }
+
+    /// Removes a registry item
+    void RemoveItem(Key key, bool delete_object = true)
+    {
+        const auto& iter = i_registeredObjects.find(key);
+        if (iter != i_registeredObjects.end())
         {
-            typename RegistryMapType::iterator iter = i_registeredObjects.find(key);
-            if( iter != i_registeredObjects.end() )
-            {
-                if( !replace )
-                    return false;
+            if (delete_object)
                 delete iter->second;
-                i_registeredObjects.erase(iter);
-            }
-
-            i_registeredObjects[key] = obj;
-            return true;
+            i_registeredObjects.erase(iter);
         }
+    }
 
-        /// Removes a registry item
-        void RemoveItem(Key key, bool delete_object = true)
-        {
-            typename RegistryMapType::iterator iter = i_registeredObjects.find(key);
-            if( iter != i_registeredObjects.end() )
-            {
-                if( delete_object )
-                    delete iter->second;
-                i_registeredObjects.erase(iter);
-            }
-        }
+    /// Returns true if registry contains an item
+    bool HasItem(Key key) const
+    {
+        return (i_registeredObjects.find(key) != i_registeredObjects.end());
+    }
 
-        /// Returns true if registry contains an item
-        bool HasItem(Key key) const
-        {
-            return (i_registeredObjects.find(key) != i_registeredObjects.end());
-        }
+    /// Inefficiently return a vector of registered items
+    unsigned int GetRegisteredItems(std::vector<Key>& l) const
+    {
+        unsigned int sz = l.size();
+        l.resize(sz + i_registeredObjects.size());
 
-        /// Inefficiently return a vector of registered items
-        unsigned int GetRegisteredItems(std::vector<Key> &l) const
-        {
-            unsigned int sz = l.size();
-            l.resize(sz + i_registeredObjects.size());
-            for(typename RegistryMapType::const_iterator iter = i_registeredObjects.begin(); iter != i_registeredObjects.end(); ++iter)
-                l[sz++] = iter->first;
-            return i_registeredObjects.size();
-        }
+        for (const auto& iter : i_registeredObjects)
+            l[ sz++ ] = iter.first;
 
-        /// Return the map of registered items
-        RegistryMapType const &GetRegisteredItems() const
-        {
-            return i_registeredObjects;
-        }
+        return i_registeredObjects.size();
+    }
 
-    private:
-        RegistryMapType i_registeredObjects;
-        friend class MaNGOS::OperatorNew<ObjectRegistry<T, Key> >;
+    /// Return the map of registered items
+    RegistryMapType const& GetRegisteredItems() const { return i_registeredObjects; }
 
-        // protected for friend use since it should be a singleton
-        ObjectRegistry() {}
-        ~ObjectRegistry()
-        {
-            for(typename RegistryMapType::iterator iter=i_registeredObjects.begin(); iter != i_registeredObjects.end(); ++iter)
-                delete iter->second;
-            i_registeredObjects.clear();
-        }
+private:
+    RegistryMapType i_registeredObjects;
+    friend class MaNGOS::OperatorNew<ObjectRegistry<T, Key>>;
+
+    // protected for friend use since it should be a singleton
+    ObjectRegistry() {}
+    ~ObjectRegistry()
+    {
+        for (typename RegistryMapType::iterator iter = i_registeredObjects.begin();
+             iter != i_registeredObjects.end();
+             ++iter)
+            delete iter->second;
+        i_registeredObjects.clear();
+    }
 };
 #endif

@@ -16,19 +16,21 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "Creature.h"
 #include "CreatureGroups.h"
-#include "ObjectMgr.h"
-#include "MoveSpline.h"
+#include "Creature.h"
 #include "CreatureAI.h"
+#include "Database/DatabaseImpl.h"
+#include "MoveSpline.h"
+#include "ObjectMgr.h"
 
 #define MAX_DESYNC 5.0f
 
-CreatureGroupMember* CreatureGroup::AddMember(ObjectGuid guid, float followDist, float followAngle, uint32 memberFlags)
+CreatureGroupMember*
+CreatureGroup::AddMember(ObjectGuid guid, float followDist, float followAngle, uint32 memberFlags)
 {
     if (guid == _leaderGuid)
         return NULL;
-    CreatureGroupMember*& member = _members[guid];
+    CreatureGroupMember*& member = _members[ guid ];
     if (!member)
         member = new CreatureGroupMember();
     member->followDistance = followDist;
@@ -38,12 +40,14 @@ CreatureGroupMember* CreatureGroup::AddMember(ObjectGuid guid, float followDist,
     return member;
 }
 
-void CreatureGroup::OnMemberAttackStart(Creature* member, Unit *target)
+void CreatureGroup::OnMemberAttackStart(Creature* member, Unit* target)
 {
     if (!(_options & OPTION_AGGRO_TOGETHER))
         return;
 
-    for (std::map<ObjectGuid, CreatureGroupMember*>::iterator itr = _members.begin(); itr != _members.end(); ++itr)
+    for (std::map<ObjectGuid, CreatureGroupMember*>::iterator itr = _members.begin();
+         itr != _members.end();
+         ++itr)
         if (itr->first != member->GetObjectGuid())
             MemberAssist(member->GetMap()->GetCreature(itr->first), target);
 
@@ -56,7 +60,9 @@ void CreatureGroup::OnLeaveCombat(Creature* member)
     bool masterEvade = member->GetObjectGuid() == GetLeaderGuid();
     if (_options & OPTION_EVADE_TOGETHER)
     {
-        for (std::map<ObjectGuid, CreatureGroupMember*>::iterator itr = _members.begin(); itr != _members.end(); ++itr)
+        for (std::map<ObjectGuid, CreatureGroupMember*>::iterator itr = _members.begin();
+             itr != _members.end();
+             ++itr)
             if (itr->first != member->GetObjectGuid())
                 if (Creature* otherMember = member->GetMap()->GetCreature(itr->first))
                     if (otherMember->IsInWorld() && otherMember->isAlive() && otherMember->AI())
@@ -71,7 +77,7 @@ void CreatureGroup::OnLeaveCombat(Creature* member)
                 }
     }
     if (_options & OPTION_RESPAWN_ALL_ON_ANY_EVADE ||
-            (_options & OPTION_RESPAWN_ALL_ON_MASTER_EVADE && masterEvade))
+        (_options & OPTION_RESPAWN_ALL_ON_MASTER_EVADE && masterEvade))
         RespawnAll(member);
 }
 
@@ -85,7 +91,9 @@ void CreatureGroup::OnRespawn(Creature* member)
 
 void CreatureGroup::RespawnAll(Creature* except)
 {
-    for (std::map<ObjectGuid, CreatureGroupMember*>::iterator itr = _members.begin(); itr != _members.end(); ++itr)
+    for (std::map<ObjectGuid, CreatureGroupMember*>::iterator itr = _members.begin();
+         itr != _members.end();
+         ++itr)
         if (itr->first != except->GetObjectGuid())
             if (Creature* otherMember = except->GetMap()->GetCreature(itr->first))
                 Respawn(otherMember, itr->second);
@@ -95,7 +103,8 @@ void CreatureGroup::RespawnAll(Creature* except)
             Respawn(otherMember, NULL);
 }
 
-void CreatureGroup::Respawn(Creature* member, CreatureGroupMember const* memberEntry /* = NULL for leader */)
+void CreatureGroup::Respawn(Creature* member,
+                            CreatureGroupMember const* memberEntry /* = NULL for leader */)
 {
     // Prevent stack overflow (member->Respawn() can call CreatureGroup::Respawn, etc ...)
     if (_respawnGuard)
@@ -123,7 +132,7 @@ void CreatureGroup::Respawn(Creature* member, CreatureGroupMember const* memberE
     _respawnGuard = false;
 }
 
-void CreatureGroup::MemberAssist(Creature* member, Unit *target)
+void CreatureGroup::MemberAssist(Creature* member, Unit* target)
 {
     if (!member || !member->IsInWorld())
         return;
@@ -153,27 +162,37 @@ void CreatureGroup::RemoveMember(ObjectGuid guid)
 
 void CreatureGroup::DeleteFromDb()
 {
-    WorldDatabase.PExecute("DELETE FROM creature_groups WHERE leaderGUID=%u", _leaderGuid.GetCounter());
+    WorldDatabase.PExecute("DELETE FROM creature_groups WHERE leaderGUID=%u",
+                           _leaderGuid.GetCounter());
 }
 
 void CreatureGroup::SaveToDb()
 {
     DeleteFromDb();
-    for (std::map<ObjectGuid, CreatureGroupMember*>::iterator it = _members.begin(); it != _members.end(); ++it)
-        WorldDatabase.PExecute("INSERT INTO creature_groups SET leaderGUID=%u, memberGUID=%u, dist='%f', angle='%f', flags=%u",
-                               _leaderGuid.GetCounter(), it->first.GetCounter(), it->second->followDistance, it->second->followAngle, it->second->memberFlags);
+    for (std::map<ObjectGuid, CreatureGroupMember*>::iterator it = _members.begin();
+         it != _members.end();
+         ++it)
+        WorldDatabase.PExecute("INSERT INTO creature_groups SET leaderGUID=%u, memberGUID=%u, "
+                               "dist='%f', angle='%f', flags=%u",
+                               _leaderGuid.GetCounter(),
+                               it->first.GetCounter(),
+                               it->second->followDistance,
+                               it->second->followAngle,
+                               it->second->memberFlags);
 }
 
 uint32 CreatureGroup::GetWaitTime(Creature* moving)
 {
-    for (std::map<ObjectGuid, CreatureGroupMember*>::iterator it = _members.begin(); it != _members.end(); ++it)
+    for (std::map<ObjectGuid, CreatureGroupMember*>::iterator it = _members.begin();
+         it != _members.end();
+         ++it)
         if (Creature* curr = moving->GetMap()->GetCreature(it->first))
             if (!curr->movespline->Finalized())
                 return 1;
     return 0;
 }
 
-bool CreatureGroupMember::ComputeRelativePosition(float leaderAngle, float &x, float &y) const
+bool CreatureGroupMember::ComputeRelativePosition(float leaderAngle, float& x, float& y) const
 {
     x = cos(followAngle + leaderAngle) * followDistance;
     y = sin(followAngle + leaderAngle) * followDistance;
@@ -191,10 +210,13 @@ void CreatureGroupsManager::Load()
 {
     uint32 oldMSTime = WorldTimer::getMSTime();
 
-    // Memory leak, but we cannot delete the loaded groups, since pointer may be present at loaded creatures
+    // Memory leak, but we cannot delete the loaded groups, since pointer may be present at loaded
+    // creatures
     _groups.clear();
 
-    QueryResult* result = WorldDatabase.Query("SELECT leaderGUID, memberGUID, dist, angle, flags FROM creature_groups ORDER BY leaderGUID");
+    std::shared_ptr<QueryResult> result =
+        WorldDatabase.Query("SELECT leaderGUID, memberGUID, dist, angle, flags "
+                            "FROM creature_groups ORDER BY leaderGUID");
 
     if (!result)
     {
@@ -204,20 +226,20 @@ void CreatureGroupsManager::Load()
     }
 
     uint32 count = 0;
-    Field *fields;
-    CreatureGroup *currentGroup = NULL;
+    Field* fields;
+    CreatureGroup* currentGroup = nullptr;
 
     do
     {
         fields = result->Fetch();
 
-        //Load group member data
-        ObjectGuid leaderGuid = ConvertDBGuid(fields[0].GetUInt32());
-        ObjectGuid memberGuid = ConvertDBGuid(fields[1].GetUInt32());
+        // Load group member data
+        ObjectGuid leaderGuid = ConvertDBGuid(fields[ 0 ].GetUInt32());
+        ObjectGuid memberGuid = ConvertDBGuid(fields[ 1 ].GetUInt32());
         if (leaderGuid.IsEmpty())
-            sLog.outErrorDb("CREATURE GROUPS: Bad leader guid %u", fields[0].GetUInt32());
+            sLog.outErrorDb("CREATURE GROUPS: Bad leader guid %u", fields[ 0 ].GetUInt32());
         else if (memberGuid.IsEmpty())
-            sLog.outErrorDb("CREATURE GROUPS: Bad member guid %u", fields[1].GetUInt32());
+            sLog.outErrorDb("CREATURE GROUPS: Bad member guid %u", fields[ 1 ].GetUInt32());
         else
         {
             if (!currentGroup || leaderGuid != currentGroup->GetLeaderGuid())
@@ -225,14 +247,14 @@ void CreatureGroupsManager::Load()
                 currentGroup = new CreatureGroup(leaderGuid);
                 RegisterNewGroup(currentGroup);
             }
-            currentGroup->AddMember(memberGuid, fields[2].GetFloat(), fields[3].GetFloat(), fields[4].GetUInt8());
+            currentGroup->AddMember(
+                memberGuid, fields[ 2 ].GetFloat(), fields[ 3 ].GetFloat(), fields[ 4 ].GetUInt8());
             ++count;
         }
-    }
-    while (result->NextRow());
-    delete result;
+    } while (result->NextRow());
 
-    sLog.outString(">> Loaded %u creature groups in %u ms", count, WorldTimer::getMSTime() - oldMSTime);
+    sLog.outString(
+        ">> Loaded %u creature groups in %u ms", count, WorldTimer::getMSTime() - oldMSTime);
     sLog.outString();
 }
 
@@ -241,9 +263,11 @@ void CreatureGroupsManager::LoadCreatureGroup(Creature* creature, CreatureGroup*
     group = NULL;
     if (!creature->HasStaticDBSpawnData())
         return;
-    for (std::map<ObjectGuid, CreatureGroup*>::iterator it = _groups.begin(); it != _groups.end(); ++it)
+    for (std::map<ObjectGuid, CreatureGroup*>::iterator it = _groups.begin(); it != _groups.end();
+         ++it)
     {
-        if (it->first == creature->GetObjectGuid() || it->second->ContainsGuid(creature->GetObjectGuid()))
+        if (it->first == creature->GetObjectGuid() ||
+            it->second->ContainsGuid(creature->GetObjectGuid()))
         {
             group = it->second;
             break;

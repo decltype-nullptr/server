@@ -19,19 +19,18 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-
 #include "Auth/AuthCrypt.h"
 
-#include "World.h"
 #include "AccountMgr.h"
+#include "AddonHandler.h"
 #include "SharedDefines.h"
+#include "World.h"
 #include "WorldSession.h"
 #include "WorldSocket.h"
 #include "WorldSocketMgr.h"
-#include "AddonHandler.h"
 
-#include "Opcodes.h"
 #include "MangosSocketImpl.h"
+#include "Opcodes.h"
 
 template class MangosSocket<WorldSession, WorldSocket, AuthCrypt>;
 
@@ -56,20 +55,19 @@ int WorldSocket::ProcessIncoming(WorldPacket* new_pct)
     new_pct->FillPacketTime(WorldTimer::getMSTime());
 
     // Dump received packet.
-    sLog.outWorldPacketDump(get_handle(), new_pct->GetOpcode(),
-                            LookupOpcodeName(new_pct->GetOpcode()), new_pct,
-                            true);
+    sLog.outWorldPacketDump(
+        get_handle(), new_pct->GetOpcode(), LookupOpcodeName(new_pct->GetOpcode()), new_pct, true);
 
     try
     {
         switch (opcode)
         {
-            case CMSG_PING:
-                return HandlePing(*new_pct);
+            case CMSG_PING: return HandlePing(*new_pct);
             case CMSG_AUTH_SESSION:
                 if (m_Session)
                 {
-                    sLog.outError("WorldSocket::ProcessIncoming: Player send CMSG_AUTH_SESSION again");
+                    sLog.outError(
+                        "WorldSocket::ProcessIncoming: Player send CMSG_AUTH_SESSION again");
                     return -1;
                 }
 
@@ -89,16 +87,20 @@ int WorldSocket::ProcessIncoming(WorldPacket* new_pct)
                 }
                 else
                 {
-                    sLog.outError("WorldSocket::ProcessIncoming: Client not authed opcode = %u", uint32(opcode));
+                    sLog.outError("WorldSocket::ProcessIncoming: Client not authed opcode = %u",
+                                  uint32(opcode));
                     return -1;
                 }
             }
         }
     }
-    catch (ByteBufferException &)
+    catch (ByteBufferException&)
     {
-        sLog.outError("WorldSocket::ProcessIncoming ByteBufferException occured while parsing an instant handled packet (opcode: %u) from client %s, accountid=%i.",
-                      opcode, GetRemoteAddress().c_str(), m_Session ? m_Session->GetAccountId() : -1);
+        sLog.outError("WorldSocket::ProcessIncoming ByteBufferException occured while parsing an "
+                      "instant handled packet (opcode: %u) from client %s, accountid=%i.",
+                      opcode,
+                      GetRemoteAddress().c_str(),
+                      m_Session ? m_Session->GetAccountId() : -1);
         if (sLog.HasLogLevelOrHigher(LOG_LVL_DEBUG))
         {
             DEBUG_LOG("Dumping error-causing packet:");
@@ -107,8 +109,10 @@ int WorldSocket::ProcessIncoming(WorldPacket* new_pct)
 
         if (sWorld.getConfig(CONFIG_BOOL_KICK_PLAYER_ON_BAD_PACKET))
         {
-            DETAIL_LOG("Disconnecting session [account id %i / address %s] for badly formatted packet.",
-                       m_Session ? m_Session->GetAccountId() : -1, GetRemoteAddress().c_str());
+            DETAIL_LOG(
+                "Disconnecting session [account id %i / address %s] for badly formatted packet.",
+                m_Session ? m_Session->GetAccountId() : -1,
+                GetRemoteAddress().c_str());
 
             return -1;
         }
@@ -122,7 +126,7 @@ int WorldSocket::ProcessIncoming(WorldPacket* new_pct)
 int WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
 {
     // NOTE: ATM the socket is singlethread, have this in mind ...
-    uint8 digest[20];
+    uint8 digest[ 20 ];
     uint32 clientSeed;
     uint32 serverId;
     uint32 BuiltNumberClient;
@@ -159,13 +163,20 @@ int WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
     }
 
     // Get the account information from the realmd database
-    std::string safe_account = account; // Duplicate, else will screw the SHA hash verification below
+    std::string safe_account =
+        account; // Duplicate, else will screw the SHA hash verification below
     LoginDatabase.escape_string(safe_account);
     // No SQL injection, username escaped.
 
-    QueryResult *result = LoginDatabase.PQuery("SELECT a.id, aa.gmLevel, a.sessionkey, a.last_ip, a.locked, a.v, a.s, a.mutetime, a.locale, a.os, a.flags, "
-        "ab.unbandate > UNIX_TIMESTAMP() OR ab.unbandate = ab.bandate FROM account a LEFT JOIN account_access aa ON a.id = aa.id AND aa.RealmID IN (-1, %u) "
-        "LEFT JOIN account_banned ab ON a.id = ab.id AND ab.active = 1 WHERE a.username = '%s' ORDER BY aa.RealmID DESC LIMIT 1", realmID, safe_account.c_str());
+    auto result = LoginDatabase.PQuery(
+        "SELECT a.id, aa.gmLevel, a.sessionkey, a.last_ip, a.locked, a.v, a.s, a.mutetime, "
+        "a.locale, a.os, a.flags, "
+        "ab.unbandate > UNIX_TIMESTAMP() OR ab.unbandate = ab.bandate FROM account a LEFT JOIN "
+        "account_access aa ON a.id = aa.id AND aa.RealmID IN (-1, %u) "
+        "LEFT JOIN account_banned ab ON a.id = ab.id AND ab.active = 1 WHERE a.username = '%s' "
+        "ORDER BY aa.RealmID DESC LIMIT 1",
+        realmID,
+        safe_account.c_str());
 
     // Stop if the account is not found
     if (!result)
@@ -184,52 +195,47 @@ int WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
     N.SetHexStr("894B645E89E1535BBDAD5B8B290650530801B18EBFBF5E8FAB3C82872A3E9BB7");
     g.SetDword(7);
 
-    v.SetHexStr(fields[5].GetString());
-    s.SetHexStr(fields[6].GetString());
+    v.SetHexStr(fields[ 5 ].GetString());
+    s.SetHexStr(fields[ 6 ].GetString());
 
-    const char* sStr = s.AsHexStr();                        //Must be freed by OPENSSL_free()
-    const char* vStr = v.AsHexStr();                        //Must be freed by OPENSSL_free()
+    const char* sStr = s.AsHexStr(); // Must be freed by OPENSSL_free()
+    const char* vStr = v.AsHexStr(); // Must be freed by OPENSSL_free()
 
-    DEBUG_LOG("WorldSocket::HandleAuthSession: (s,v) check s: %s v: %s",
-              sStr,
-              vStr);
+    DEBUG_LOG("WorldSocket::HandleAuthSession: (s,v) check s: %s v: %s", sStr, vStr);
 
-    OPENSSL_free((void*) sStr);
-    OPENSSL_free((void*) vStr);
+    OPENSSL_free((void*)sStr);
+    OPENSSL_free((void*)vStr);
 
     ///- Re-check ip locking (same check as in realmd).
-    if (fields[4].GetUInt8() == 1)  // if ip is locked
+    if (fields[ 4 ].GetUInt8() == 1) // if ip is locked
     {
-        if (strcmp(fields[3].GetString(), GetRemoteAddress().c_str()))
+        if (strcmp(fields[ 3 ].GetString(), GetRemoteAddress().c_str()))
         {
             packet.Initialize(SMSG_AUTH_RESPONSE, 1);
             packet << uint8(AUTH_FAILED);
             SendPacket(packet);
 
-            delete result;
             BASIC_LOG("WorldSocket::HandleAuthSession: Sent Auth Response (Account IP differs).");
             return -1;
         }
     }
 
-    id = fields[0].GetUInt32();
-    security = sAccountMgr.GetSecurity(id); //fields[1].GetUInt16 ();
-    if (security > SEC_ADMINISTRATOR)                       // prevent invalid security settings in DB
+    id       = fields[ 0 ].GetUInt32();
+    security = sAccountMgr.GetSecurity(id); // fields[1].GetUInt16 ();
+    if (security > SEC_ADMINISTRATOR)       // prevent invalid security settings in DB
         security = SEC_ADMINISTRATOR;
 
-    K.SetHexStr(fields[2].GetString());
+    K.SetHexStr(fields[ 2 ].GetString());
 
-    time_t mutetime = time_t (fields[7].GetUInt64());
+    time_t mutetime = time_t(fields[ 7 ].GetUInt64());
 
-    locale = LocaleConstant(fields[8].GetUInt8());
+    locale = LocaleConstant(fields[ 8 ].GetUInt8());
     if (locale >= MAX_LOCALE)
         locale = LOCALE_enUS;
-    os = fields[9].GetString();
-    uint32 accFlags = fields[10].GetUInt32();
+    os              = fields[ 9 ].GetString();
+    uint32 accFlags = fields[ 10 ].GetUInt32();
 
-    delete result;
-
-    bool isBanned = fields[11].GetBool();
+    bool isBanned = fields[ 11 ].GetBool();
     if (isBanned || sAccountMgr.IsIPBanned(GetRemoteAddress()))
     {
         packet.Initialize(SMSG_AUTH_RESPONSE, 1);
@@ -250,20 +256,21 @@ int WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
 
         SendPacket(packet);
 
-        BASIC_LOG("WorldSocket::HandleAuthSession: User tries to login but his security level is not enough");
+        BASIC_LOG("WorldSocket::HandleAuthSession: User tries to login but his security level is "
+                  "not enough");
         return -1;
     }
 
     // Check that Key and account name are the same on client and server
     Sha1Hash sha;
 
-    uint32 t = 0;
+    uint32 t    = 0;
     uint32 seed = m_Seed;
 
     sha.UpdateData(account);
-    sha.UpdateData((uint8 *) & t, 4);
-    sha.UpdateData((uint8 *) & clientSeed, 4);
-    sha.UpdateData((uint8 *) & seed, 4);
+    sha.UpdateData((uint8*)&t, 4);
+    sha.UpdateData((uint8*)&clientSeed, 4);
+    sha.UpdateData((uint8*)&seed, 4);
     sha.UpdateBigNumbers(&K, NULL);
     sha.Finalize();
 
@@ -274,7 +281,8 @@ int WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
 
         SendPacket(packet);
 
-        sLog.outError("WorldSocket::HandleAuthSession: Sent Auth Response (authentification failed).");
+        sLog.outError(
+            "WorldSocket::HandleAuthSession: Sent Auth Response (authentification failed).");
         return -1;
     }
 
@@ -288,7 +296,8 @@ int WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
     // No SQL injection, username escaped.
     static SqlStatementID updAccount;
 
-    SqlStatement stmt = LoginDatabase.CreateStatement(updAccount, "UPDATE account SET last_ip = ? WHERE username = ?");
+    SqlStatement stmt = LoginDatabase.CreateStatement(
+        updAccount, "UPDATE account SET last_ip = ? WHERE username = ?");
     stmt.PExecute(address.c_str(), account.c_str());
 
     // NOTE ATM the socket is single-threaded, have this in mind ...
@@ -308,7 +317,11 @@ int WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
         clientOs = CLIENT_OS_MAC;
     else
     {
-        sLog.outError("WorldSocket::HandleAuthSession: Unrecognized OS '%s' for account '%s' from %s", os.c_str(), account.c_str(), address.c_str());
+        sLog.outError(
+            "WorldSocket::HandleAuthSession: Unrecognized OS '%s' for account '%s' from %s",
+            os.c_str(),
+            account.c_str(),
+            address.c_str());
         return -1;
     }
 
@@ -338,7 +351,7 @@ int WorldSocket::HandlePing(WorldPacket& recvPacket)
     recvPacket >> latency;
 
     if (m_LastPingTime == ACE_Time_Value::zero)
-        m_LastPingTime = ACE_OS::gettimeofday();  // for 1st ping
+        m_LastPingTime = ACE_OS::gettimeofday(); // for 1st ping
     else
     {
         ACE_Time_Value cur_time = ACE_OS::gettimeofday();

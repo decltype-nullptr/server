@@ -21,14 +21,16 @@
 
 #ifndef DO_POSTGRESQL
 
-#include <errmsg.h>
-#include <mysqld_error.h>
-#include "Util.h"
-#include "Policies/SingletonImp.h"
-#include "Platform/Define.h"
-#include "Threading.h"
 #include "DatabaseEnv.h"
+#include "Platform/Define.h"
+#include "Policies/SingletonImp.h"
+#include "Threading.h"
 #include "Timer.h"
+#include "Util.h"
+
+#include <errmsg.h>
+#include <memory>
+#include <mysqld_error.h>
 
 size_t DatabaseMysql::db_count = 0;
 
@@ -45,7 +47,7 @@ void DatabaseMysql::ThreadEnd()
 DatabaseMysql::DatabaseMysql()
 {
     // before first connection
-    if (db_count++ == 0 )
+    if (db_count++ == 0)
     {
         // Mysql Library Init
         mysql_library_init(-1, NULL, NULL);
@@ -63,12 +65,12 @@ DatabaseMysql::~DatabaseMysql()
 {
     StopServer();
 
-    //Free Mysql library pointers for last ~DB
-    if(--db_count == 0)
+    // Free Mysql library pointers for last ~DB
+    if (--db_count == 0)
         mysql_library_end();
 }
 
-SqlConnection * DatabaseMysql::CreateConnection()
+SqlConnection* DatabaseMysql::CreateConnection()
 {
     return new MySQLConnection(*this);
 }
@@ -81,30 +83,35 @@ MySQLConnection::~MySQLConnection()
 
 bool MySQLConnection::OpenConnection(bool reconnect)
 {
-    MYSQL * mysqlInit = mysql_init(NULL);
+    MYSQL* mysqlInit = mysql_init(NULL);
     if (!mysqlInit)
     {
-        sLog.outError( "Could not initialize Mysql connection" );
+        sLog.outError("Could not initialize Mysql connection");
         return false;
     }
 
     mysql_options(mysqlInit, MYSQL_SET_CHARSET_NAME, "utf8");
 
-    if (m_use_socket)                                           // socket use option (Unix/Linux)
+    if (m_use_socket) // socket use option (Unix/Linux)
     {
         unsigned int opt = MYSQL_PROTOCOL_SOCKET;
         mysql_options(mysqlInit, MYSQL_OPT_PROTOCOL, (char const*)&opt);
     }
 
-    mMysql = mysql_real_connect(mysqlInit, m_host.c_str(), m_user.c_str(),
-        m_password.c_str(), m_database.c_str(), m_port, NULL, 0);
+    mMysql = mysql_real_connect(mysqlInit,
+                                m_host.c_str(),
+                                m_user.c_str(),
+                                m_password.c_str(),
+                                m_database.c_str(),
+                                m_port,
+                                NULL,
+                                0);
 
     if (mMysql)
     {
-        DETAIL_LOG( "Connected to MySQL database at %s",
-            m_host.c_str());
-        DETAIL_LOG( "MySQL client library: %s", mysql_get_client_info());
-        DETAIL_LOG( "MySQL server ver: %s ", mysql_get_server_info(mMysql));
+        DETAIL_LOG("Connected to MySQL database at %s", m_host.c_str());
+        DETAIL_LOG("MySQL client library: %s", mysql_get_client_info());
+        DETAIL_LOG("MySQL server ver: %s ", mysql_get_server_info(mMysql));
 
         /*----------SET AUTOCOMMIT ON---------*/
         // It seems mysql 5.0.x have enabled this feature
@@ -116,7 +123,8 @@ bool MySQLConnection::OpenConnection(bool reconnect)
         // Setting it to on makes atomic updates work
         // ---
         // LEAVE 'AUTOCOMMIT' MODE ALWAYS ENABLED!!!
-        // W/O IT EVEN 'SELECT' QUERIES WOULD REQUIRE TO BE WRAPPED INTO 'START TRANSACTION'<>'COMMIT' CLAUSES!!!
+        // W/O IT EVEN 'SELECT' QUERIES WOULD REQUIRE TO BE WRAPPED INTO 'START
+        // TRANSACTION'<>'COMMIT' CLAUSES!!!
         if (!mysql_autocommit(mMysql, 1))
             DETAIL_LOG("AUTOCOMMIT SUCCESSFULLY SET TO 1");
         else
@@ -132,8 +140,9 @@ bool MySQLConnection::OpenConnection(bool reconnect)
     }
     else
     {
-        sLog.outError( "Could not connect to MySQL database at %s: %s\n",
-            m_host.c_str(), mysql_error(mysqlInit));
+        sLog.outError("Could not connect to MySQL database at %s: %s\n",
+                      m_host.c_str(),
+                      mysql_error(mysqlInit));
         mysql_close(mysqlInit);
         return false;
     }
@@ -141,13 +150,14 @@ bool MySQLConnection::OpenConnection(bool reconnect)
 
 bool MySQLConnection::Reconnect()
 {
-    sLog.outString("Reconnection attempt to database %s (on %s)", m_database.c_str(), m_host.c_str());
+    sLog.outString(
+        "Reconnection attempt to database %s (on %s)", m_database.c_str(), m_host.c_str());
 
     if (OpenConnection(true))
     {
         FreePreparedStatements(); // We need to prepare everything again!
-        sLog.outString("Successfully reconnected to %s @%s:%u.",
-            m_database.c_str(), m_host.c_str(), m_port);
+        sLog.outString(
+            "Successfully reconnected to %s @%s:%u.", m_database.c_str(), m_host.c_str(), m_port);
 
         return true;
     }
@@ -178,7 +188,8 @@ bool MySQLConnection::HandleMySQLError(uint32 errNo)
         // Outdated table or database structure - terminate core
         case ER_BAD_FIELD_ERROR:
         case ER_NO_SUCH_TABLE:
-            sLog.outErrorDb("Your database structure is not up to date. Please make sure you have executed all the queries in the sql/updates folders.");
+            sLog.outErrorDb("Your database structure is not up to date. Please make sure you have "
+                            "executed all the queries in the sql/updates folders.");
             ASSERT(false);
             return false;
         case ER_PARSE_ERROR:
@@ -191,13 +202,16 @@ bool MySQLConnection::HandleMySQLError(uint32 errNo)
     }
 }
 
-bool MySQLConnection::_Query(const char *sql, MYSQL_RES **pResult, MYSQL_FIELD **pFields, uint64* pRowCount, uint32* pFieldCount)
+bool MySQLConnection::_Query(const char* sql,
+                             MYSQL_RES** pResult,
+                             MYSQL_FIELD** pFields,
+                             uint64* pRowCount,
+                             uint32* pFieldCount)
 {
     if (!mMysql && !Reconnect())
     {
         return false;
     }
-        
 
     uint32 _s = WorldTimer::getMSTime();
 
@@ -205,7 +219,7 @@ bool MySQLConnection::_Query(const char *sql, MYSQL_RES **pResult, MYSQL_FIELD *
     {
         uint32 lErrno = mysql_errno(mMysql);
 
-        sLog.outErrorDb( "SQL: %s", sql);
+        sLog.outErrorDb("SQL: %s", sql);
         sLog.outErrorDb("[%u] %s", lErrno, mysql_error(mMysql));
 
         if (HandleMySQLError(lErrno)) // If error is handled, just try again
@@ -215,14 +229,17 @@ bool MySQLConnection::_Query(const char *sql, MYSQL_RES **pResult, MYSQL_FIELD *
     }
     else
     {
-        DEBUG_FILTER_LOG(LOG_FILTER_SQL_TEXT, "[%u ms] SQL: %s", WorldTimer::getMSTimeDiff(_s,WorldTimer::getMSTime()), sql );
+        DEBUG_FILTER_LOG(LOG_FILTER_SQL_TEXT,
+                         "[%u ms] SQL: %s",
+                         WorldTimer::getMSTimeDiff(_s, WorldTimer::getMSTime()),
+                         sql);
     }
 
-    *pResult = mysql_store_result(mMysql);
-    *pRowCount = mysql_affected_rows(mMysql);
+    *pResult     = mysql_store_result(mMysql);
+    *pRowCount   = mysql_affected_rows(mMysql);
     *pFieldCount = mysql_field_count(mMysql);
 
-    if (!*pResult )
+    if (!*pResult)
         return false;
 
     if (!*pRowCount)
@@ -235,40 +252,40 @@ bool MySQLConnection::_Query(const char *sql, MYSQL_RES **pResult, MYSQL_FIELD *
     return true;
 }
 
-QueryResult* MySQLConnection::Query(const char *sql)
+std::shared_ptr<QueryResult> MySQLConnection::Query(const char* sql)
 {
-    MYSQL_RES *result = NULL;
-    MYSQL_FIELD *fields = NULL;
-    uint64 rowCount = 0;
-    uint32 fieldCount = 0;
+    MYSQL_RES* result   = nullptr;
+    MYSQL_FIELD* fields = nullptr;
+    uint64 rowCount     = 0;
+    uint32 fieldCount   = 0;
 
-    if(!_Query(sql,&result,&fields,&rowCount,&fieldCount))
-        return NULL;
+    if (!_Query(sql, &result, &fields, &rowCount, &fieldCount))
+        return nullptr;
 
-    QueryResultMysql *queryResult = new QueryResultMysql(result, fields, rowCount, fieldCount);
+    auto queryResult = std::make_shared<QueryResultMysql>(result, fields, rowCount, fieldCount);
 
     queryResult->NextRow();
     return queryResult;
 }
 
-QueryNamedResult* MySQLConnection::QueryNamed(const char *sql)
+std::shared_ptr<QueryNamedResult> MySQLConnection::QueryNamed(const char* sql)
 {
-    MYSQL_RES *result = NULL;
-    MYSQL_FIELD *fields = NULL;
-    uint64 rowCount = 0;
-    uint32 fieldCount = 0;
+    MYSQL_RES* result   = nullptr;
+    MYSQL_FIELD* fields = nullptr;
+    uint64 rowCount     = 0;
+    uint32 fieldCount   = 0;
 
-    if(!_Query(sql,&result,&fields,&rowCount,&fieldCount))
-        return NULL;
+    if (!_Query(sql, &result, &fields, &rowCount, &fieldCount))
+        return nullptr;
 
     QueryFieldNames names(fieldCount);
     for (uint32 i = 0; i < fieldCount; i++)
-        names[i] = fields[i].name;
+        names[ i ] = fields[ i ].name;
 
-    QueryResultMysql *queryResult = new QueryResultMysql(result, fields, rowCount, fieldCount);
+    auto queryResult = std::make_shared<QueryResultMysql>(result, fields, rowCount, fieldCount);
 
     queryResult->NextRow();
-    return new QueryNamedResult(queryResult,names);
+    return std::make_shared<QueryNamedResult>(queryResult, names);
 }
 
 bool MySQLConnection::Execute(const char* sql)
@@ -282,7 +299,7 @@ bool MySQLConnection::Execute(const char* sql)
     {
         uint32 lErrno = mysql_errno(mMysql);
 
-        sLog.outErrorDb( "SQL: %s", sql);
+        sLog.outErrorDb("SQL: %s", sql);
         sLog.outErrorDb("[%u] %s", lErrno, mysql_error(mMysql));
 
         if (HandleMySQLError(lErrno)) // If error is handled, just try again
@@ -291,13 +308,16 @@ bool MySQLConnection::Execute(const char* sql)
     }
     else
     {
-        DEBUG_FILTER_LOG(LOG_FILTER_SQL_TEXT, "[%u ms] SQL: %s", WorldTimer::getMSTimeDiff(_s,WorldTimer::getMSTime()), sql );
+        DEBUG_FILTER_LOG(LOG_FILTER_SQL_TEXT,
+                         "[%u ms] SQL: %s",
+                         WorldTimer::getMSTimeDiff(_s, WorldTimer::getMSTime()),
+                         sql);
     }
 
     return true;
 }
 
-bool MySQLConnection::_TransactionCmd(const char *sql)
+bool MySQLConnection::_TransactionCmd(const char* sql)
 {
     if (mysql_query(mMysql, sql))
     {
@@ -327,24 +347,30 @@ bool MySQLConnection::RollbackTransaction()
     return _TransactionCmd("ROLLBACK");
 }
 
-unsigned long MySQLConnection::escape_string(char *to, const char *from, unsigned long length)
+unsigned long MySQLConnection::escape_string(char* to, const char* from, unsigned long length)
 {
     if (!mMysql || !to || !from || !length)
         return 0;
 
-    return(mysql_real_escape_string(mMysql, to, from, length));
+    return (mysql_real_escape_string(mMysql, to, from, length));
 }
 
 //////////////////////////////////////////////////////////////////////////
-SqlPreparedStatement * MySQLConnection::CreateStatement( const std::string& fmt )
+SqlPreparedStatement* MySQLConnection::CreateStatement(const std::string& fmt)
 {
     return new MySqlPreparedStatement(fmt, *this, mMysql);
 }
 
-
 //////////////////////////////////////////////////////////////////////////
-MySqlPreparedStatement::MySqlPreparedStatement( const std::string& fmt, SqlConnection& conn, MYSQL * mysql ) : SqlPreparedStatement(fmt, conn),
-    m_pMySQLConn(mysql), m_stmt(NULL), m_pInputArgs(NULL), m_pResult(NULL), m_pResultMetadata(NULL)
+MySqlPreparedStatement::MySqlPreparedStatement(const std::string& fmt,
+                                               SqlConnection& conn,
+                                               MYSQL* mysql)
+    : SqlPreparedStatement(fmt, conn)
+    , m_pMySQLConn(mysql)
+    , m_stmt(NULL)
+    , m_pInputArgs(NULL)
+    , m_pResult(NULL)
+    , m_pResultMetadata(NULL)
 {
 }
 
@@ -355,13 +381,13 @@ MySqlPreparedStatement::~MySqlPreparedStatement()
 
 bool MySqlPreparedStatement::prepare()
 {
-    if(isPrepared())
+    if (isPrepared())
         return true;
 
-    //remove old binds
+    // remove old binds
     RemoveBinds();
 
-    //create statement object
+    // create statement object
     m_stmt = mysql_stmt_init(m_pMySQLConn);
     if (!m_stmt)
     {
@@ -369,7 +395,7 @@ bool MySqlPreparedStatement::prepare()
         return false;
     }
 
-    //prepare statement
+    // prepare statement
     if (mysql_stmt_prepare(m_stmt, m_szFmt.c_str(), m_szFmt.length()))
     {
         sLog.outError("SQL: mysql_stmt_prepare() failed for '%s'", m_szFmt.c_str());
@@ -382,7 +408,7 @@ bool MySqlPreparedStatement::prepare()
 
     /* Fetch result set meta information */
     m_pResultMetadata = mysql_stmt_result_metadata(m_stmt);
-    //if we do not have result metadata
+    // if we do not have result metadata
     if (!m_pResultMetadata && strnicmp(m_szFmt.c_str(), "select", 6) == 0)
     {
         sLog.outError("SQL: no meta information for '%s'", m_szFmt.c_str());
@@ -390,58 +416,60 @@ bool MySqlPreparedStatement::prepare()
         return false;
     }
 
-    //bind input buffers
-    if(m_nParams)
+    // bind input buffers
+    if (m_nParams)
     {
-        m_pInputArgs = new MYSQL_BIND[m_nParams];
+        m_pInputArgs = new MYSQL_BIND[ m_nParams ];
         memset(m_pInputArgs, 0, sizeof(MYSQL_BIND) * m_nParams);
     }
 
-    //check if we have a statement which returns result sets
-    if(m_pResultMetadata)
+    // check if we have a statement which returns result sets
+    if (m_pResultMetadata)
     {
-        //our statement is query
+        // our statement is query
         m_bIsQuery = true;
         /* Get total columns in the query */
         m_nColumns = mysql_num_fields(m_pResultMetadata);
 
-        //bind output buffers
+        // bind output buffers
     }
 
     m_bPrepared = true;
     return true;
 }
 
-void MySqlPreparedStatement::bind( const SqlStmtParameters& holder )
+void MySqlPreparedStatement::bind(const SqlStmtParameters& holder)
 {
-    if(!isPrepared())
+    if (!isPrepared())
     {
         MANGOS_ASSERT(false);
         return;
     }
 
-    //finalize adding params
-    if(!m_pInputArgs)
+    // finalize adding params
+    if (!m_pInputArgs)
         return;
 
-    //verify if we bound all needed input parameters
-    if(m_nParams != holder.boundParams())
+    // verify if we bound all needed input parameters
+    if (m_nParams != holder.boundParams())
     {
         MANGOS_ASSERT(false);
         return;
     }
 
-    int nIndex = 0;
+    int nIndex                                         = 0;
     SqlStmtParameters::ParameterContainer const& _args = holder.params();
 
     SqlStmtParameters::ParameterContainer::const_iterator iter_last = _args.end();
-    for (SqlStmtParameters::ParameterContainer::const_iterator iter = _args.begin(); iter != iter_last; ++iter)
+    for (SqlStmtParameters::ParameterContainer::const_iterator iter = _args.begin();
+         iter != iter_last;
+         ++iter)
     {
-        //bind parameter
+        // bind parameter
         addParam(nIndex++, (*iter));
     }
 
-    //bind input arguments
+    // bind input arguments
     if (mysql_stmt_bind_param(m_stmt, m_pInputArgs))
     {
         sLog.outError("SQL ERROR: mysql_stmt_bind_param() failed\n");
@@ -449,49 +477,49 @@ void MySqlPreparedStatement::bind( const SqlStmtParameters& holder )
     }
 }
 
-void MySqlPreparedStatement::addParam( int nIndex, const SqlStmtFieldData& data )
+void MySqlPreparedStatement::addParam(int nIndex, const SqlStmtFieldData& data)
 {
     MANGOS_ASSERT(m_pInputArgs);
-    MANGOS_ASSERT(nIndex < static_cast <int32> (m_nParams));
+    MANGOS_ASSERT(nIndex < static_cast<int32>(m_nParams));
 
-    MYSQL_BIND& pData = m_pInputArgs[nIndex];
+    MYSQL_BIND& pData = m_pInputArgs[ nIndex ];
 
-    my_bool bUnsigned = 0;
+    my_bool bUnsigned         = 0;
     enum_field_types dataType = ToMySQLType(data, bUnsigned);
 
-    //setup MYSQL_BIND structure
-    pData.buffer_type = dataType;
-    pData.is_unsigned = bUnsigned;
-    pData.buffer = data.buff();
-    pData.length = 0;
+    // setup MYSQL_BIND structure
+    pData.buffer_type   = dataType;
+    pData.is_unsigned   = bUnsigned;
+    pData.buffer        = data.buff();
+    pData.length        = 0;
     pData.buffer_length = data.type() == FIELD_STRING ? data.size() : 0;
 }
 
 void MySqlPreparedStatement::RemoveBinds()
 {
-    if(!m_stmt)
+    if (!m_stmt)
         return;
 
-    delete [] m_pInputArgs;
-    delete [] m_pResult;
+    delete[] m_pInputArgs;
+    delete[] m_pResult;
 
     mysql_free_result(m_pResultMetadata);
     mysql_stmt_close(m_stmt);
 
-    m_stmt = NULL;
+    m_stmt            = NULL;
     m_pResultMetadata = NULL;
-    m_pResult = NULL;
-    m_pInputArgs = NULL;
+    m_pResult         = NULL;
+    m_pInputArgs      = NULL;
 
     m_bPrepared = false;
 }
 
 bool MySqlPreparedStatement::execute()
 {
-    if(!isPrepared())
+    if (!isPrepared())
         return false;
 
-    if(mysql_stmt_execute(m_stmt))
+    if (mysql_stmt_execute(m_stmt))
     {
         sLog.outError("SQL: cannot execute '%s'", m_szFmt.c_str());
         sLog.outError("SQL ERROR: %s", mysql_stmt_error(m_stmt));
@@ -501,26 +529,42 @@ bool MySqlPreparedStatement::execute()
     return true;
 }
 
-enum_field_types MySqlPreparedStatement::ToMySQLType( const SqlStmtFieldData &data, my_bool &bUnsigned )
+enum_field_types MySqlPreparedStatement::ToMySQLType(const SqlStmtFieldData& data,
+                                                     my_bool& bUnsigned)
 {
-    bUnsigned = 0;
+    bUnsigned                 = 0;
     enum_field_types dataType = MYSQL_TYPE_NULL;
 
     switch (data.type())
     {
-    case FIELD_NONE:    dataType = MYSQL_TYPE_NULL;                     break;
-    case FIELD_BOOL:    dataType = MYSQL_TYPE_BIT;      bUnsigned = 1;  break;
-    case FIELD_I8:      dataType = MYSQL_TYPE_TINY;                     break;
-    case FIELD_UI8:     dataType = MYSQL_TYPE_TINY;     bUnsigned = 1;  break;
-    case FIELD_I16:     dataType = MYSQL_TYPE_SHORT;                    break;
-    case FIELD_UI16:    dataType = MYSQL_TYPE_SHORT;    bUnsigned = 1;  break;
-    case FIELD_I32:     dataType = MYSQL_TYPE_LONG;                     break;
-    case FIELD_UI32:    dataType = MYSQL_TYPE_LONG;     bUnsigned = 1;  break;
-    case FIELD_I64:     dataType = MYSQL_TYPE_LONGLONG;                 break;
-    case FIELD_UI64:    dataType = MYSQL_TYPE_LONGLONG; bUnsigned = 1;  break;
-    case FIELD_FLOAT:   dataType = MYSQL_TYPE_FLOAT;                    break;
-    case FIELD_DOUBLE:  dataType = MYSQL_TYPE_DOUBLE;                   break;
-    case FIELD_STRING:  dataType = MYSQL_TYPE_STRING;                   break;
+        case FIELD_NONE: dataType = MYSQL_TYPE_NULL; break;
+        case FIELD_BOOL:
+            dataType  = MYSQL_TYPE_BIT;
+            bUnsigned = 1;
+            break;
+        case FIELD_I8: dataType = MYSQL_TYPE_TINY; break;
+        case FIELD_UI8:
+            dataType  = MYSQL_TYPE_TINY;
+            bUnsigned = 1;
+            break;
+        case FIELD_I16: dataType = MYSQL_TYPE_SHORT; break;
+        case FIELD_UI16:
+            dataType  = MYSQL_TYPE_SHORT;
+            bUnsigned = 1;
+            break;
+        case FIELD_I32: dataType = MYSQL_TYPE_LONG; break;
+        case FIELD_UI32:
+            dataType  = MYSQL_TYPE_LONG;
+            bUnsigned = 1;
+            break;
+        case FIELD_I64: dataType = MYSQL_TYPE_LONGLONG; break;
+        case FIELD_UI64:
+            dataType  = MYSQL_TYPE_LONGLONG;
+            bUnsigned = 1;
+            break;
+        case FIELD_FLOAT: dataType = MYSQL_TYPE_FLOAT; break;
+        case FIELD_DOUBLE: dataType = MYSQL_TYPE_DOUBLE; break;
+        case FIELD_STRING: dataType = MYSQL_TYPE_STRING; break;
     }
 
     return dataType;

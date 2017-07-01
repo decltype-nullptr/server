@@ -2,16 +2,17 @@
  * Copyright (C) 2016 Elysium Project <https://elysium-project.org>
  */
 
-#include "Formulas.h"
 #include "HonorMgr.h"
-#include "Language.h"
-#include "World.h"
-#include "Unit.h"
 #include "Creature.h"
-#include "Player.h"
 #include "Database/DatabaseEnv.h"
-#include "Policies/SingletonImp.h"
+#include "Database/DatabaseImpl.h"
+#include "Formulas.h"
+#include "Language.h"
 #include "ObjectAccessor.h"
+#include "Player.h"
+#include "Policies/SingletonImp.h"
+#include "Unit.h"
+#include "World.h"
 
 #include <fstream>
 
@@ -21,12 +22,9 @@ HonorStandingList& HonorMaintenancer::GetStandingListByTeam(Team team)
 {
     switch (team)
     {
-        case ALLIANCE:
-            return m_allianceStandingList;
-        case HORDE:
-            return m_hordeStandingList;
-        default:
-            return m_allianceStandingList;
+        case ALLIANCE: return m_allianceStandingList;
+        case HORDE: return m_hordeStandingList;
+        default: return m_allianceStandingList;
     }
 }
 
@@ -45,7 +43,7 @@ float HonorMaintenancer::GetStandingCPByPosition(HonorStandingList& standingList
 
 uint32 HonorMaintenancer::GetStandingPositionByGUID(uint32 guid, Team team)
 {
-    uint32 pos = 1;
+    uint32 pos         = 1;
     auto& standingList = GetStandingListByTeam(team);
     for (auto& standing : standingList)
     {
@@ -60,25 +58,37 @@ uint32 HonorMaintenancer::GetStandingPositionByGUID(uint32 guid, Team team)
 void HonorMaintenancer::LoadWeeklyScores()
 {
     uint32 weekBeginDay = GetWeekBeginDay();
-    uint32 weekEndDay = GetWeekEndDay();
+    uint32 weekEndDay   = GetWeekEndDay();
 
     std::ostringstream query;
 
-    query << "SELECT `scores`.`guid`, `c`.`level`, `c`.`account`, `c`.`honorRankPoints`, `c`.`honorHighestRank`, SUM(`hk`), SUM(`dk`), SUM(`cp`) FROM"
-        "("
-        "  SELECT `guid` AS `guid`, COUNT(*) AS `hk`, 0 AS `dk`, SUM(`cp`) AS `cp` FROM `character_honor_cp` WHERE `type` = " << HONORABLE <<
-        "  AND (`date` BETWEEN " << weekBeginDay << " AND " << weekEndDay << ") GROUP BY `guid`"
-        "  UNION"
-        "  SELECT `guid` AS `guid`, 0 AS `hk`, COUNT(*) AS `dk`, 0 AS `cp` FROM `character_honor_cp` WHERE `type` = " << DISHONORABLE <<
-        "  AND (`date` BETWEEN " << weekBeginDay << " AND " << weekEndDay << ") GROUP BY `guid`"
-        "  UNION"
-        "  SELECT `guid` AS `guid`, 0 AS `hk`, 0 AS `dk`, SUM(`cp`) AS `cp` FROM `character_honor_cp` WHERE `type` NOT IN (" << HONORABLE << ", " << DISHONORABLE << ")"
-        "  AND (`date` BETWEEN " << weekBeginDay << " AND " << weekEndDay << ") GROUP BY `guid`"
-        "  UNION"
-        "  SELECT `guid` AS `guid`, 0 AS `hk`, 0 AS `dk`, 0 AS `cp` FROM `characters` WHERE `honorRankPoints` > 0"
-        ") AS `scores` INNER JOIN `characters` AS `c` ON `scores`.`guid` = `c`.`guid` GROUP BY `guid` ORDER BY `guid` ";
+    query << "SELECT `scores`.`guid`, `c`.`level`, `c`.`account`, `c`.`honorRankPoints`, "
+             "`c`.`honorHighestRank`, SUM(`hk`), SUM(`dk`), SUM(`cp`) FROM"
+             "("
+             "  SELECT `guid` AS `guid`, COUNT(*) AS `hk`, 0 AS `dk`, SUM(`cp`) AS `cp` FROM "
+             "`character_honor_cp` WHERE `type` = "
+          << HONORABLE << "  AND (`date` BETWEEN " << weekBeginDay << " AND " << weekEndDay
+          << ") GROUP BY `guid`"
+             "  UNION"
+             "  SELECT `guid` AS `guid`, 0 AS `hk`, COUNT(*) AS `dk`, 0 AS `cp` FROM "
+             "`character_honor_cp` WHERE `type` = "
+          << DISHONORABLE << "  AND (`date` BETWEEN " << weekBeginDay << " AND " << weekEndDay
+          << ") GROUP BY `guid`"
+             "  UNION"
+             "  SELECT `guid` AS `guid`, 0 AS `hk`, 0 AS `dk`, SUM(`cp`) AS `cp` FROM "
+             "`character_honor_cp` WHERE `type` NOT IN ("
+          << HONORABLE << ", " << DISHONORABLE
+          << ")"
+             "  AND (`date` BETWEEN "
+          << weekBeginDay << " AND " << weekEndDay
+          << ") GROUP BY `guid`"
+             "  UNION"
+             "  SELECT `guid` AS `guid`, 0 AS `hk`, 0 AS `dk`, 0 AS `cp` FROM `characters` WHERE "
+             "`honorRankPoints` > 0"
+             ") AS `scores` INNER JOIN `characters` AS `c` ON `scores`.`guid` = `c`.`guid` GROUP "
+             "BY `guid` ORDER BY `guid` ";
 
-    QueryResult* result = CharacterDatabase.Query(query.str().c_str());
+    std::shared_ptr<QueryResult> result = CharacterDatabase.Query(query.str().c_str());
 
     if (result)
     {
@@ -86,17 +96,15 @@ void HonorMaintenancer::LoadWeeklyScores()
         {
             Field* fields = result->Fetch();
             WeeklyScore score;
-            score.level  = fields[1].GetUInt32();
-            score.account = fields[2].GetUInt32();
-            score.oldRp  = fields[3].GetFloat();
-            score.highestRank = fields[4].GetUInt32();
-            score.hk  = fields[5].GetUInt32();
-            score.dk  = fields[6].GetUInt32();
-            score.cp  = fields[7].GetFloat();
-            m_weeklyScores[fields[0].GetUInt32()] = score;
-        }
-        while (result->NextRow());
-        delete result;
+            score.level                               = fields[ 1 ].GetUInt32();
+            score.account                             = fields[ 2 ].GetUInt32();
+            score.oldRp                               = fields[ 3 ].GetFloat();
+            score.highestRank                         = fields[ 4 ].GetUInt32();
+            score.hk                                  = fields[ 5 ].GetUInt32();
+            score.dk                                  = fields[ 6 ].GetUInt32();
+            score.cp                                  = fields[ 7 ].GetFloat();
+            m_weeklyScores[ fields[ 0 ].GetUInt32() ] = score;
+        } while (result->NextRow());
     }
 }
 
@@ -109,7 +117,7 @@ void HonorMaintenancer::LoadStandingLists()
         auto weeklyScore = pair.second;
         HonorStanding standing;
         standing.guid = pair.first;
-        standing.cp = weeklyScore.cp;
+        standing.cp   = weeklyScore.cp;
 
         if (weeklyScore.hk < minHK || !weeklyScore.account)
         {
@@ -130,7 +138,9 @@ void HonorMaintenancer::LoadStandingLists()
     m_hordeStandingList.sort();
 
     sLog.outHonor("[MAINTENANCE] Alliance: %u, Horde: %u, Inactive: %u",
-        m_allianceStandingList.size(), m_hordeStandingList.size(), m_inactiveStandingList.size());
+                  m_allianceStandingList.size(),
+                  m_hordeStandingList.size(),
+                  m_inactiveStandingList.size());
 }
 
 void HonorMaintenancer::DistributeRankPoints(Team team)
@@ -150,13 +160,13 @@ void HonorMaintenancer::DistributeRankPoints(Team team)
             continue;
 
         auto& weeklyScore = itrWS->second;
-        
+
         // Calculate rank points earning
         weeklyScore.earning = CalculateRpEarning(weeklyScore.cp, scores);
-        
+
         // Calculate rank points with decay
         weeklyScore.newRp = CalculateRpDecay(weeklyScore.earning, weeklyScore.oldRp);
-        
+
         // Level restrictions
         weeklyScore.newRp = std::min(MaximumRpAtLevel(weeklyScore.level), weeklyScore.newRp);
 
@@ -184,7 +194,8 @@ void HonorMaintenancer::InactiveDecayRankPoints()
 void HonorMaintenancer::FlushRankPoints()
 {
     // Imediatly reset honor standing before flushing
-    CharacterDatabase.Execute("UPDATE `characters` SET `honorStanding` = 0 WHERE `honorStanding` > 0");
+    CharacterDatabase.Execute(
+        "UPDATE `characters` SET `honorStanding` = 0 WHERE `honorStanding` > 0");
 
     for (auto& pair : m_weeklyScores)
     {
@@ -199,16 +210,24 @@ void HonorMaintenancer::FlushRankPoints()
         if (currentRank.visualRank > 0 && (currentRank.visualRank > highestRank.visualRank))
             highestRank = currentRank;
 
-        CharacterDatabase.PExecute("UPDATE `characters` SET `honorHighestRank` = %u, `honorRankPoints` = %.1f, `honorStanding` = %u, "
-            "`honorLastWeekHK` = %u, `honorStoredHK` = (`honorStoredHK` + %u), `honorStoredDK` = (`honorStoredDK` + %u), `honorLastWeekCP` = %.1f WHERE `guid` = %u",
-            highestRank.rank,
-            finiteAlways(weeklyScore.newRp), weeklyScore.standing,
-            weeklyScore.hk, weeklyScore.hk, weeklyScore.dk,
-            finiteAlways(weeklyScore.cp), pair.first);
+        CharacterDatabase.PExecute("UPDATE `characters` SET `honorHighestRank` = %u, "
+                                   "`honorRankPoints` = %.1f, `honorStanding` = %u, "
+                                   "`honorLastWeekHK` = %u, `honorStoredHK` = (`honorStoredHK` + "
+                                   "%u), `honorStoredDK` = (`honorStoredDK` + %u), "
+                                   "`honorLastWeekCP` = %.1f WHERE `guid` = %u",
+                                   highestRank.rank,
+                                   finiteAlways(weeklyScore.newRp),
+                                   weeklyScore.standing,
+                                   weeklyScore.hk,
+                                   weeklyScore.hk,
+                                   weeklyScore.dk,
+                                   finiteAlways(weeklyScore.cp),
+                                   pair.first);
     }
 
     // Not includes weekend day, for correct view in honor tab for group "Yesterday"
-    CharacterDatabase.PExecute("DELETE FROM `character_honor_cp` WHERE `date` < %u", GetWeekEndDay());
+    CharacterDatabase.PExecute("DELETE FROM `character_honor_cp` WHERE `date` < %u",
+                               GetWeekEndDay());
 }
 
 void HonorMaintenancer::DoMaintenance()
@@ -242,7 +261,7 @@ void HonorMaintenancer::DoMaintenance()
 void HonorMaintenancer::CreateCalculationReport()
 {
     std::string timestamp = Log::GetTimestampStr();
-    std::string filename = "HCR_" + timestamp + ".txt";
+    std::string filename  = "HCR_" + timestamp + ".txt";
 
     std::ofstream ofs;
     ofs.open(filename.c_str());
@@ -262,23 +281,23 @@ void HonorMaintenancer::CreateCalculationReport()
         ofs << std::flush;
 
         for (auto i = 0; i < 14; ++i)
-            ofs << "BRK[" << i << "] = " << scores.BRK[i] << std::endl;
+            ofs << "BRK[" << i << "] = " << scores.BRK[ i ] << std::endl;
 
         ofs << std::endl;
         ofs << std::flush;
 
         for (auto i = 0; i < 15; ++i)
-            ofs << "FX[" << i << "] = " << scores.FX[i] << std::endl;
+            ofs << "FX[" << i << "] = " << scores.FX[ i ] << std::endl;
 
         ofs << std::endl;
         ofs << std::flush;
 
         for (auto i = 0; i < 15; ++i)
-            ofs << "FY[" << i << "] = " << scores.FY[i] << std::endl;
-        
+            ofs << "FY[" << i << "] = " << scores.FY[ i ] << std::endl;
+
         ofs << std::endl;
         ofs << std::flush;
-        
+
         for (auto& st : m_allianceStandingList)
         {
             auto itrWS = m_weeklyScores.find(st.guid);
@@ -287,20 +306,18 @@ void HonorMaintenancer::CreateCalculationReport()
 
             auto ws = itrWS->second;
 
-            ofs << "Guid: " << st.guid
-                << ", HK: " << ws.hk
-                << ", DK: " << ws.dk
-                << ", CP: " << ws.cp
-                << ", oldRp: " << ws.oldRp
-                << ", earning: " << ws.earning
-                << ", newRp: " << ws.newRp
-                << ", capRp: " << MaximumRpAtLevel(ws.level)
-                << ", standing: " << ws.standing << std::endl << std::flush;
+            ofs << "Guid: " << st.guid << ", HK: " << ws.hk << ", DK: " << ws.dk
+                << ", CP: " << ws.cp << ", oldRp: " << ws.oldRp << ", earning: " << ws.earning
+                << ", newRp: " << ws.newRp << ", capRp: " << MaximumRpAtLevel(ws.level)
+                << ", standing: " << ws.standing << std::endl
+                << std::flush;
         }
     }
-    
-    ofs << "--------------------------------------------------" << std::endl << std::endl << std::flush;
-    
+
+    ofs << "--------------------------------------------------" << std::endl
+        << std::endl
+        << std::flush;
+
     if (!m_hordeStandingList.empty())
     {
         HonorScores scores = GenerateScores(m_hordeStandingList);
@@ -311,23 +328,23 @@ void HonorMaintenancer::CreateCalculationReport()
         ofs << std::flush;
 
         for (auto i = 0; i < 14; ++i)
-            ofs << "BRK[" << i << "] = " << scores.BRK[i] << std::endl;
+            ofs << "BRK[" << i << "] = " << scores.BRK[ i ] << std::endl;
 
         ofs << std::endl;
         ofs << std::flush;
 
         for (auto i = 0; i < 15; ++i)
-            ofs << "FX[" << i << "] = " << scores.FX[i] << std::endl;
+            ofs << "FX[" << i << "] = " << scores.FX[ i ] << std::endl;
 
         ofs << std::endl;
         ofs << std::flush;
 
         for (auto i = 0; i < 15; ++i)
-            ofs << "FY[" << i << "] = " << scores.FY[i] << std::endl;
-        
+            ofs << "FY[" << i << "] = " << scores.FY[ i ] << std::endl;
+
         ofs << std::endl;
         ofs << std::flush;
-        
+
         for (auto& st : m_hordeStandingList)
         {
             auto itrWS = m_weeklyScores.find(st.guid);
@@ -336,20 +353,18 @@ void HonorMaintenancer::CreateCalculationReport()
 
             auto ws = itrWS->second;
 
-            ofs << "Guid: " << st.guid
-                << ", HK: " << ws.hk
-                << ", DK: " << ws.dk
-                << ", CP: " << ws.cp
-                << ", oldRp: " << ws.oldRp
-                << ", earning: " << ws.earning
-                << ", newRp: " << ws.newRp
-                << ", capRp: " << MaximumRpAtLevel(ws.level)
-                << ", standing: " << ws.standing << std::endl << std::flush;
+            ofs << "Guid: " << st.guid << ", HK: " << ws.hk << ", DK: " << ws.dk
+                << ", CP: " << ws.cp << ", oldRp: " << ws.oldRp << ", earning: " << ws.earning
+                << ", newRp: " << ws.newRp << ", capRp: " << MaximumRpAtLevel(ws.level)
+                << ", standing: " << ws.standing << std::endl
+                << std::flush;
         }
     }
-    
-    ofs << "--------------------------------------------------" << std::endl << std::endl << std::flush;
-    
+
+    ofs << "--------------------------------------------------" << std::endl
+        << std::endl
+        << std::flush;
+
     if (!m_inactiveStandingList.empty())
     {
         ofs << "Inactive players decay" << std::endl << std::endl;
@@ -364,14 +379,11 @@ void HonorMaintenancer::CreateCalculationReport()
 
             auto ws = itrWS->second;
 
-            ofs << "Guid: " << st.guid
-                << ", HK: " << ws.hk
-                << ", DK: " << ws.dk
-                << ", CP: " << ws.cp
-                << ", oldRp: " << ws.oldRp
-                << ", newRp: " << ws.newRp
-                << ", capRp: " << MaximumRpAtLevel(ws.level)
-                << ", standing: " << ws.standing << std::endl << std::flush;
+            ofs << "Guid: " << st.guid << ", HK: " << ws.hk << ", DK: " << ws.dk
+                << ", CP: " << ws.cp << ", oldRp: " << ws.oldRp << ", newRp: " << ws.newRp
+                << ", capRp: " << MaximumRpAtLevel(ws.level) << ", standing: " << ws.standing
+                << std::endl
+                << std::flush;
         }
     }
 
@@ -385,21 +397,21 @@ HonorScores HonorMaintenancer::GenerateScores(HonorStandingList& standingList)
     // initialize the breakpoint values
     // [-PROGRESSIVE]
     // 1.11- values (source: http://www.wowwiki.com/Honor_system_%28pre-2.0_formulas%29)
-    sc.BRK[13] = 0.002f;
-    sc.BRK[12] = 0.007f;
-    sc.BRK[11] = 0.017f;
-    sc.BRK[10] = 0.032f;
-    sc.BRK[ 9] = 0.057f;
-    sc.BRK[ 8] = 0.097f;
-    sc.BRK[ 7] = 0.156f;
-    sc.BRK[ 6] = 0.225f;
-    sc.BRK[ 5] = 0.324f;
-    sc.BRK[ 4] = 0.433f;
-    sc.BRK[ 3] = 0.553f;
-    sc.BRK[ 2] = 0.687f;
-    sc.BRK[ 1] = 0.835f;
-    sc.BRK[ 0] = 1.000f;
-    
+    sc.BRK[ 13 ] = 0.002f;
+    sc.BRK[ 12 ] = 0.007f;
+    sc.BRK[ 11 ] = 0.017f;
+    sc.BRK[ 10 ] = 0.032f;
+    sc.BRK[ 9 ]  = 0.057f;
+    sc.BRK[ 8 ]  = 0.097f;
+    sc.BRK[ 7 ]  = 0.156f;
+    sc.BRK[ 6 ]  = 0.225f;
+    sc.BRK[ 5 ]  = 0.324f;
+    sc.BRK[ 4 ]  = 0.433f;
+    sc.BRK[ 3 ]  = 0.553f;
+    sc.BRK[ 2 ]  = 0.687f;
+    sc.BRK[ 1 ]  = 0.835f;
+    sc.BRK[ 0 ]  = 1.000f;
+
     /*
     // 1.12+
     sc.BRK[13] = 0.003f;
@@ -420,19 +432,19 @@ HonorScores HonorMaintenancer::GenerateScores(HonorStandingList& standingList)
 
     // get the WS scores at the top of each break point
     for (uint8 group = 0; group < 14; group++)
-        sc.BRK[group] = floor((sc.BRK[group] * standingList.size()) + 0.5f);
+        sc.BRK[ group ] = floor((sc.BRK[ group ] * standingList.size()) + 0.5f);
 
     // initialize RP array
     // set the low point
-    sc.FY[0] = 0;
+    sc.FY[ 0 ] = 0;
 
     // the Y values for each breakpoint are fixed
-    sc.FY[1] = 400;
+    sc.FY[ 1 ] = 400;
     for (uint8 i = 2; i <= 13; i++)
-        sc.FY[i] = (i - 1) * 1000;
+        sc.FY[ i ] = (i - 1) * 1000;
 
     // and finally
-    sc.FY[14] = 13000;   // ... gets 13000 RP
+    sc.FY[ 14 ] = 13000; // ... gets 13000 RP
 
     // the X values for each breakpoint are found from the CP scores
     // of the players around that point in the WS scores
@@ -440,36 +452,36 @@ HonorScores HonorMaintenancer::GenerateScores(HonorStandingList& standingList)
     float tempHonor;
 
     // initialize CP array
-    sc.FX[0] = 0;
+    sc.FX[ 0 ] = 0;
 
     bool top = false;
     for (uint8 i = 1; i <= 13; i++)
     {
-        honor = 0.0f;
-        tempHonor = GetStandingCPByPosition(standingList, sc.BRK[i]);
+        honor     = 0.0f;
+        tempHonor = GetStandingCPByPosition(standingList, sc.BRK[ i ]);
 
         if (tempHonor)
         {
             honor += tempHonor;
-            tempHonor = GetStandingCPByPosition(standingList, sc.BRK[i] + 1);
+            tempHonor = GetStandingCPByPosition(standingList, sc.BRK[ i ] + 1);
 
             if (tempHonor)
                 honor += tempHonor;
         }
 
-        sc.FX[i] = honor ? honor / 2 : 0;
+        sc.FX[ i ] = honor ? honor / 2 : 0;
 
         if (!top && !honor)
         {
             // top scorer
-            sc.FX[i] = sc.FX[i - 1] ? standingList.begin()->cp : 0;
-            top = true;
+            sc.FX[ i ] = sc.FX[ i - 1 ] ? standingList.begin()->cp : 0;
+            top        = true;
         }
     }
 
     // set the high point if FX full filled before
     // top scorer
-    sc.FX[14] = !top ? standingList.begin()->cp : 0;   
+    sc.FX[ 14 ] = !top ? standingList.begin()->cp : 0;
 
     return sc;
 }
@@ -478,15 +490,17 @@ float HonorMaintenancer::CalculateRpEarning(float cp, HonorScores sc)
 {
     // search the function for the two points that bound the given CP
     uint8 i = 0;
-    while (i < 14 && sc.BRK[i] > 0 && sc.FX[i] <= cp)
+    while (i < 14 && sc.BRK[ i ] > 0 && sc.FX[ i ] <= cp)
         i++;
 
     // we now have i such that FX[i] > cp >= FX[i-1]
     // so interpolate
-    if (sc.FX[i] > cp && cp >= sc.FX[i - 1])
-        return (sc.FY[i] - sc.FY[i - 1]) * (cp - sc.FX[i - 1]) / (sc.FX[i] - sc.FX[i - 1]) + sc.FY[i - 1];
+    if (sc.FX[ i ] > cp && cp >= sc.FX[ i - 1 ])
+        return (sc.FY[ i ] - sc.FY[ i - 1 ]) * (cp - sc.FX[ i - 1 ]) /
+                   (sc.FX[ i ] - sc.FX[ i - 1 ]) +
+               sc.FY[ i - 1 ];
 
-    return sc.FY[i];
+    return sc.FY[ i ];
 }
 
 float HonorMaintenancer::CalculateRpDecay(float rpEarning, float rp)
@@ -533,8 +547,11 @@ void HonorMaintenancer::CheckMaintenanceDay()
 void HonorMaintenancer::ToggleMaintenanceMarker()
 {
     m_markerToStart = !m_markerToStart;
-    CharacterDatabase.PExecute("INSERT INTO `saved_variables` (`key`, `honorMaintenanceMarker`) VALUES (0, %u) "
-        "ON DUPLICATE KEY UPDATE `honorMaintenanceMarker` = %u", m_markerToStart, m_markerToStart);
+    CharacterDatabase.PExecute(
+        "INSERT INTO `saved_variables` (`key`, `honorMaintenanceMarker`) VALUES (0, %u) "
+        "ON DUPLICATE KEY UPDATE `honorMaintenanceMarker` = %u",
+        m_markerToStart,
+        m_markerToStart);
 }
 
 void HonorMaintenancer::SetMaintenanceDays(uint32 last, uint32 next)
@@ -544,23 +561,29 @@ void HonorMaintenancer::SetMaintenanceDays(uint32 last, uint32 next)
     if (!next)
         m_nextMaintenanceDay = m_lastMaintenanceDay + 7;
 
-    CharacterDatabase.PExecute("INSERT INTO `saved_variables` (`key`, `lastHonorMaintenanceDay`, `nextHonorMaintenanceDay`) VALUES (0, %u, %u) "
+    CharacterDatabase.PExecute(
+        "INSERT INTO `saved_variables` (`key`, `lastHonorMaintenanceDay`, "
+        "`nextHonorMaintenanceDay`) VALUES (0, %u, %u) "
         "ON DUPLICATE KEY UPDATE `lastHonorMaintenanceDay` = %u, `nextHonorMaintenanceDay` = %u",
-        m_lastMaintenanceDay, m_nextMaintenanceDay, m_lastMaintenanceDay, m_nextMaintenanceDay);
+        m_lastMaintenanceDay,
+        m_nextMaintenanceDay,
+        m_lastMaintenanceDay,
+        m_nextMaintenanceDay);
 }
 
 void HonorMaintenancer::Initialize()
 {
     sLog.outString("Initialize Honor Maintenance system...");
 
-    QueryResult* result = CharacterDatabase.Query("SELECT `lastHonorMaintenanceDay`, `nextHonorMaintenanceDay`, `honorMaintenanceMarker` FROM `saved_variables`");
+    std::shared_ptr<QueryResult> result =
+        CharacterDatabase.Query("SELECT `lastHonorMaintenanceDay`, `nextHonorMaintenanceDay`, "
+                                "`honorMaintenanceMarker` FROM `saved_variables`");
     if (result)
     {
-        Field* fields = result->Fetch();
-        m_lastMaintenanceDay = fields[0].GetUInt32();
-        m_nextMaintenanceDay = fields[1].GetUInt32();
-        m_markerToStart = fields[2].GetBool();
-        delete result;
+        Field* fields        = result->Fetch();
+        m_lastMaintenanceDay = fields[ 0 ].GetUInt32();
+        m_nextMaintenanceDay = fields[ 1 ].GetUInt32();
+        m_markerToStart      = fields[ 2 ].GetBool();
     }
 
     if (!m_lastMaintenanceDay)
@@ -570,11 +593,11 @@ void HonorMaintenancer::Initialize()
 void HonorMgr::ClearHonorData()
 {
     m_honorCP.clear();
-    m_totalHK = 0;
-    m_totalDK = 0;
-    m_storedHK = 0;
-    m_storedDK = 0;
-    m_standing = 0;
+    m_totalHK    = 0;
+    m_totalDK    = 0;
+    m_storedHK   = 0;
+    m_storedDK   = 0;
+    m_standing   = 0;
     m_lastWeekHK = 0;
     m_rankPoints = 0.0f;
     m_lastWeekCP = 0.0f;
@@ -590,7 +613,8 @@ void HonorMgr::Reset()
     ClearHonorData();
 
     // It will delete all honor cp from database imediatly
-    CharacterDatabase.PExecute("DELETE FROM `character_honor_cp` WHERE `guid` = %u", m_owner->GetGUIDLow());
+    CharacterDatabase.PExecute("DELETE FROM `character_honor_cp` WHERE `guid` = %u",
+                               m_owner->GetGUIDLow());
     SaveStoredData();
 
     Update();
@@ -614,29 +638,33 @@ void HonorMgr::Save()
         switch (honorCP.state)
         {
             case STATE_NEW:
-                CharacterDatabase.PExecute("INSERT INTO `character_honor_cp` (`guid`, `victimType`, `victim`, `cp`, `date`, `type`) "
-                    " VALUES (%u, %u, %u, %.1f, %u, %u)", m_owner->GetGUIDLow(), honorCP.victimType, honorCP.victimId,
-                    finiteAlways(honorCP.cp), honorCP.date, honorCP.type);
+                CharacterDatabase.PExecute("INSERT INTO `character_honor_cp` (`guid`, "
+                                           "`victimType`, `victim`, `cp`, `date`, `type`) "
+                                           " VALUES (%u, %u, %u, %.1f, %u, %u)",
+                                           m_owner->GetGUIDLow(),
+                                           honorCP.victimType,
+                                           honorCP.victimId,
+                                           finiteAlways(honorCP.cp),
+                                           honorCP.date,
+                                           honorCP.type);
                 honorCP.state = STATE_UNCHANGED;
                 tempCP.push_back(honorCP);
                 break;
-            case STATE_UNCHANGED:
-                tempCP.push_back(honorCP);
-                break;
-            default:
-                break;
+            case STATE_UNCHANGED: tempCP.push_back(honorCP); break;
+            default: break;
         }
     }
 
     m_honorCP.clear();
     m_honorCP = tempCP;
     tempCP.clear();
-    
+
     // Static data, used for armory
-    /*CharacterDatabase.PExecute("DELETE FROM `character_honor_static` WHERE `guid` = %u", m_owner->GetGUIDLow());
-    std::ostringstream ss;
-    ss << "INSERT INTO `character_honor_static` (`guid`, `hk`, `dk`, `today_hk`, `today_dk`, "
-        "`yesterday_kills`, `yesterday_cp`, `thisWeek_kills`, `thisWeek_cp`, `lastWeek_kills`, `lastWeek_cp`) VALUES ("
+    /*CharacterDatabase.PExecute("DELETE FROM `character_honor_static` WHERE `guid` = %u",
+    m_owner->GetGUIDLow()); std::ostringstream ss; ss << "INSERT INTO `character_honor_static`
+    (`guid`, `hk`, `dk`, `today_hk`, `today_dk`, "
+        "`yesterday_kills`, `yesterday_cp`, `thisWeek_kills`, `thisWeek_cp`, `lastWeek_kills`,
+    `lastWeek_cp`) VALUES ("
         << m_owner->GetGUIDLow() << ", "
         << m_owner->GetUInt32Value(PLAYER_FIELD_LIFETIME_HONORABLE_KILLS) << ", "
         << m_owner->GetUInt32Value(PLAYER_FIELD_LIFETIME_DISHONORABLE_KILLS) << ", "
@@ -655,14 +683,22 @@ void HonorMgr::SaveStoredData()
 {
     if (!m_owner)
         return;
-        
-    CharacterDatabase.PExecute("UPDATE `characters` SET `honorRankPoints` = %.1f, `honorStanding` = %u, `honorHighestRank` = %u, "
-            "`honorLastWeekHK` = %u, `honorLastWeekCP` = %.1f, `honorStoredHK` = %u, `honorStoredDK` = %u WHERE `guid` = %u",
-            finiteAlways(m_rankPoints), m_standing, m_highestRank.rank, m_lastWeekHK,
-            finiteAlways(m_lastWeekCP), m_storedHK, m_storedDK, m_owner->GetGUIDLow());
+
+    CharacterDatabase.PExecute("UPDATE `characters` SET `honorRankPoints` = %.1f, `honorStanding` "
+                               "= %u, `honorHighestRank` = %u, "
+                               "`honorLastWeekHK` = %u, `honorLastWeekCP` = %.1f, `honorStoredHK` "
+                               "= %u, `honorStoredDK` = %u WHERE `guid` = %u",
+                               finiteAlways(m_rankPoints),
+                               m_standing,
+                               m_highestRank.rank,
+                               m_lastWeekHK,
+                               finiteAlways(m_lastWeekCP),
+                               m_storedHK,
+                               m_storedDK,
+                               m_owner->GetGUIDLow());
 }
 
-void HonorMgr::Load(QueryResult* result)
+void HonorMgr::Load(const std::shared_ptr<QueryResult>& result)
 {
     if (result)
     {
@@ -673,16 +709,15 @@ void HonorMgr::Load(QueryResult* result)
             Field* fields = result->Fetch();
 
             HonorCP honorCP;
-            honorCP.victimType = fields[0].GetUInt8();
-            honorCP.victimId   = fields[1].GetUInt32();
-            honorCP.cp         = fields[2].GetFloat();
-            honorCP.date       = fields[3].GetUInt32();
-            honorCP.type       = fields[4].GetUInt8();
+            honorCP.victimType = fields[ 0 ].GetUInt8();
+            honorCP.victimId   = fields[ 1 ].GetUInt32();
+            honorCP.cp         = fields[ 2 ].GetFloat();
+            honorCP.date       = fields[ 3 ].GetUInt32();
+            honorCP.type       = fields[ 4 ].GetUInt8();
             honorCP.state      = STATE_UNCHANGED;
 
             m_honorCP.push_back(honorCP);
-        }
-        while (result->NextRow());
+        } while (result->NextRow());
 
         // result will be delete in character query holder later
     }
@@ -700,11 +735,12 @@ bool HonorMgr::Add(float cp, uint8 type, Unit* source)
 
     HonorCP honorCP;
     honorCP.date = sWorld.GetGameDay();
-    honorCP.cp = cp;
-    honorCP.victimId = (source->GetTypeId() == TYPEID_PLAYER ? source->GetGUIDLow() : source->GetEntry());
+    honorCP.cp   = cp;
+    honorCP.victimId =
+        (source->GetTypeId() == TYPEID_PLAYER ? source->GetGUIDLow() : source->GetEntry());
     honorCP.victimType = (source == m_owner ? 0 : source->GetTypeId());
-    honorCP.type = type;
-    honorCP.state = STATE_NEW;
+    honorCP.type       = type;
+    honorCP.state      = STATE_NEW;
 
     float honor = (type == DISHONORABLE) ? -cp : cp;
 
@@ -716,12 +752,26 @@ bool HonorMgr::Add(float cp, uint8 type, Unit* source)
     bool plr = source->GetTypeId() == TYPEID_PLAYER ? true : false;
 
     if (m_owner->GetMap()->IsBattleGround())
-        sLog.outHonor("[BATTLEGROUND]: Player %s (account: %u) got %f honor for type %u, source %s %s (IP: %s)",
-            m_owner->GetSession()->GetPlayerName(), m_owner->GetSession()->GetAccountId(), honor, type, plr ? "player" : "unit", source->GetName(), ip.c_str());
+        sLog.outHonor("[BATTLEGROUND]: Player %s (account: %u) got %f honor for type %u, source %s "
+                      "%s (IP: %s)",
+                      m_owner->GetSession()->GetPlayerName(),
+                      m_owner->GetSession()->GetAccountId(),
+                      honor,
+                      type,
+                      plr ? "player" : "unit",
+                      source->GetName(),
+                      ip.c_str());
     else
-        sLog.outHonor("[OPEN WORLD]: Player %s (account: %u) got %f honor for type %u, source %s %s (IP: %s)",
-            m_owner->GetSession()->GetPlayerName(), m_owner->GetSession()->GetAccountId(), honor, type, plr ? "player" : "unit", source->GetName(), ip.c_str());
-    
+        sLog.outHonor(
+            "[OPEN WORLD]: Player %s (account: %u) got %f honor for type %u, source %s %s (IP: %s)",
+            m_owner->GetSession()->GetPlayerName(),
+            m_owner->GetSession()->GetAccountId(),
+            honor,
+            type,
+            plr ? "player" : "unit",
+            source->GetName(),
+            ip.c_str());
+
     if (type == DISHONORABLE)
     {
         // DK penalties are subtracted from your RP score immediately
@@ -743,15 +793,15 @@ void HonorMgr::Update()
     if (!m_owner)
         return;
 
-    uint32 todayHK = 0;
-    uint32 todayDK = 0;
+    uint32 todayHK        = 0;
+    uint32 todayDK        = 0;
     uint32 yesterdayKills = 0;
-    uint32 thisWeekKills = 0;
-    float yesterdayCP = 0.0f;
-    float thisWeekCP = 0.0f;
+    uint32 thisWeekKills  = 0;
+    float yesterdayCP     = 0.0f;
+    float thisWeekCP      = 0.0f;
 
-    uint32 today = sWorld.GetGameDay();
-    uint32 yesterday = today - 1;
+    uint32 today         = sWorld.GetGameDay();
+    uint32 yesterday     = today - 1;
     uint32 thisWeekBegin = sHonorMaintenancer.GetWeekBeginDay();
 
     m_totalDK = m_storedDK;
@@ -787,7 +837,7 @@ void HonorMgr::Update()
         {
             if (itr.date == today)
                 ++todayDK;
-            
+
             ++m_totalDK;
         }
     }
@@ -800,10 +850,11 @@ void HonorMgr::Update()
     m_owner->SetByteValue(PLAYER_FIELD_BYTES, 3, m_highestRank.rank);
     // RANK (Patent)
     m_owner->SetByteValue(PLAYER_BYTES_3, 3, m_rank.rank);
-    
+
     uint32 honorBar = uint32(m_rankPoints >= 0.0f ? m_rankPoints : -1 * m_rankPoints);
-    honorBar = uint8(((honorBar - m_rank.minRP) / (m_rank.maxRP - m_rank.minRP)) * (m_rank.positive ? 255 : -255));
-    
+    honorBar        = uint8(((honorBar - m_rank.minRP) / (m_rank.maxRP - m_rank.minRP)) *
+                     (m_rank.positive ? 255 : -255));
+
     // PLAYER_FIELD_HONOR_BAR
     m_owner->SetUInt32Value(PLAYER_FIELD_BYTES2, honorBar);
 
@@ -813,15 +864,18 @@ void HonorMgr::Update()
 
     // YESTERDAY
     m_owner->SetUInt32Value(PLAYER_FIELD_YESTERDAY_KILLS, yesterdayKills);
-    m_owner->SetUInt32Value(PLAYER_FIELD_YESTERDAY_CONTRIBUTION, uint32(yesterdayCP > 0.0f ? yesterdayCP : 0.0f));
+    m_owner->SetUInt32Value(PLAYER_FIELD_YESTERDAY_CONTRIBUTION,
+                            uint32(yesterdayCP > 0.0f ? yesterdayCP : 0.0f));
 
     // THIS WEEK
     m_owner->SetUInt32Value(PLAYER_FIELD_THIS_WEEK_KILLS, thisWeekKills);
-    m_owner->SetUInt32Value(PLAYER_FIELD_THIS_WEEK_CONTRIBUTION, uint32(thisWeekCP > 0.0f ? thisWeekCP : 0.0f));
+    m_owner->SetUInt32Value(PLAYER_FIELD_THIS_WEEK_CONTRIBUTION,
+                            uint32(thisWeekCP > 0.0f ? thisWeekCP : 0.0f));
 
     // LAST WEEK
     m_owner->SetUInt32Value(PLAYER_FIELD_LAST_WEEK_KILLS, m_lastWeekHK);
-    m_owner->SetUInt32Value(PLAYER_FIELD_LAST_WEEK_CONTRIBUTION, uint32(m_lastWeekCP > 0.0f ? m_lastWeekCP : 0.0f));
+    m_owner->SetUInt32Value(PLAYER_FIELD_LAST_WEEK_CONTRIBUTION,
+                            uint32(m_lastWeekCP > 0.0f ? m_lastWeekCP : 0.0f));
     m_owner->SetUInt32Value(PLAYER_FIELD_LAST_WEEK_RANK, m_standing);
 
     // LIFE TIME
@@ -829,13 +883,13 @@ void HonorMgr::Update()
     m_owner->SetUInt32Value(PLAYER_FIELD_LIFETIME_DISHONORABLE_KILLS, m_totalDK);
 }
 
-void HonorMgr::InitRankInfo(HonorRankInfo &prk)
+void HonorMgr::InitRankInfo(HonorRankInfo& prk)
 {
-    prk.positive = true;
-    prk.rank = 0;
+    prk.positive   = true;
+    prk.rank       = 0;
     prk.visualRank = 0;
-    prk.maxRP = 2000.00f;
-    prk.minRP = 0.00f;
+    prk.maxRP      = 2000.00f;
+    prk.minRP      = 0.00f;
 }
 
 uint32 HonorMgr::CalculateTotalKills(Unit* victim) const
@@ -844,20 +898,15 @@ uint32 HonorMgr::CalculateTotalKills(Unit* victim) const
         return 0;
 
     uint32 totalKills = 0;
-    uint32 id = 0;
-    uint32 today = sWorld.GetGameDay();
-    uint8 victimType = victim->GetTypeId();
+    uint32 id         = 0;
+    uint32 today      = sWorld.GetGameDay();
+    uint8 victimType  = victim->GetTypeId();
 
     switch (victimType)
     {
-        case TYPEID_PLAYER:
-            id = ((Player*)victim)->GetGUIDLow();
-            break;
-        case TYPEID_UNIT:
-            id = victim->GetEntry();
-            break;
-        default:
-            return 0;
+        case TYPEID_PLAYER: id = ((Player*)victim)->GetGUIDLow(); break;
+        case TYPEID_UNIT: id = victim->GetEntry(); break;
+        default: return 0;
     }
 
     for (auto& honorCP : m_honorCP)
@@ -871,18 +920,21 @@ void HonorMgr::CalculateRankInfo(HonorRankInfo& prk)
 {
     if (prk.rank != 0)
     {
-        int8 rank = prk.positive ? prk.rank - NEGATIVE_HONOR_RANK_COUNT - 1 : prk.rank - NEGATIVE_HONOR_RANK_COUNT;
-        prk.maxRP = (rank) * 5000.00f;
+        int8 rank = prk.positive ? prk.rank - NEGATIVE_HONOR_RANK_COUNT - 1 :
+                                   prk.rank - NEGATIVE_HONOR_RANK_COUNT;
+        prk.maxRP = (rank)*5000.00f;
         if (prk.maxRP < 0) // in negative rank case
             prk.maxRP *= -1;
-        prk.minRP = prk.maxRP > 5000.0f ? prk.maxRP  - 5000.00f : 2000.00f;
+        prk.minRP = prk.maxRP > 5000.0f ? prk.maxRP - 5000.00f : 2000.00f;
 
         if (prk.rank == 5)
         {
             prk.maxRP = 2000.0f;
             prk.minRP = 0.0f;
         }
-        prk.visualRank = prk.rank > NEGATIVE_HONOR_RANK_COUNT ? prk.rank - NEGATIVE_HONOR_RANK_COUNT : prk.rank * -1;
+        prk.visualRank = prk.rank > NEGATIVE_HONOR_RANK_COUNT ?
+                             prk.rank - NEGATIVE_HONOR_RANK_COUNT :
+                             prk.rank * -1;
     }
     else
         InitRankInfo(prk);
@@ -920,7 +972,7 @@ HonorRankInfo HonorMgr::CalculateRank(float rankPoints, uint32 totalHK)
         else
         {
             prk.rank = uint32(rankPoints / 5000.00f) + firstRank;
-            prk.rank = (prk.positive ? prk.rank  + 1 : NEGATIVE_HONOR_RANK_COUNT - prk.rank);
+            prk.rank = (prk.positive ? prk.rank + 1 : NEGATIVE_HONOR_RANK_COUNT - prk.rank);
         }
     }
 
@@ -960,15 +1012,16 @@ float HonorMgr::HonorableKillPoints(Player* killer, Player* victim, uint32 group
 
     // Penalty due to level diff
     float diffLevelPenalty = MaNGOS::XP::BaseGainLevelFactor(killerLevel, victimLevel);
-    
+
     double sameVictimPenalty = totalKills >= 10 ? 0 : 1 - double(totalKills) / 10;
 
     // Same unit killing penalty
-    // [-PROGRESSIVE] Total kills per day cahnged in 1.12 (http://wow.gamepedia.com/Patch_1.12.0#General)
-    // Honorable Kills now diminish at a rate 10% per kill rather than 25% per kill.
+    // [-PROGRESSIVE] Total kills per day cahnged in 1.12
+    // (http://wow.gamepedia.com/Patch_1.12.0#General) Honorable Kills now diminish at a rate 10%
+    // per kill rather than 25% per kill.
     if (sWorld.GetWowPatch() < WOW_PATCH_112)
         sameVictimPenalty = totalKills >= 5 ? 0 : 1 - double(totalKills) / 4;
-    
+
     // Level related coefficient
     double levelCoeff;
 
@@ -993,8 +1046,9 @@ float HonorMgr::HonorableKillPoints(Player* killer, Player* victim, uint32 group
     // Values from http://www.wowwiki.com/Honor_system_(pre-2.0_formulas)
     if (sWorld.GetWowPatch() < WOW_PATCH_108)
         expFactor = 157.4f;
-        
-    return ceil(levelCoeff * sameVictimPenalty * (expFactor * exp(0.05331 * victimRank)) * diffLevelPenalty / groupSize);
+
+    return ceil(levelCoeff * sameVictimPenalty * (expFactor * exp(0.05331 * victimRank)) *
+                diffLevelPenalty / groupSize);
 }
 
 void HonorMgr::SendPVPCredit(Unit* victim, float honor)

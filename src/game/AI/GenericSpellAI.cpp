@@ -1,7 +1,7 @@
 #include "ProgressBar.h"
-#include "SpellMgr.h"
 #include "ScriptedAI.h"
 #include "ScriptedInstance.h"
+#include "SpellMgr.h"
 #include "Util.h"
 
 #define DEFAULT_MIN_CD 5000
@@ -13,13 +13,13 @@
 
 enum
 {
-    GENERIC_TARGET_VICTIM = 0,
-    GENERIC_TARGET_SELF = 1,
-    GENERIC_TARGET_HOSTILE_RAND = 2,
+    GENERIC_TARGET_VICTIM               = 0,
+    GENERIC_TARGET_SELF                 = 1,
+    GENERIC_TARGET_HOSTILE_RAND         = 2,
     GENERIC_TARGET_HOSTILE_RAND_NOT_TOP = 3,
-    GENERIC_TARGET_HOSTILE_IN_RANGE = 4,
-    GENERIC_TARGET_FRIEND_NEED_HEAL = 5,
-    GENERIC_TARGET_FRIEND_DISPELL_CC = 6,
+    GENERIC_TARGET_HOSTILE_IN_RANGE     = 4,
+    GENERIC_TARGET_FRIEND_NEED_HEAL     = 5,
+    GENERIC_TARGET_FRIEND_DISPELL_CC    = 6,
 
     GENERIC_TARGET_AUTO = 100
 };
@@ -64,7 +64,6 @@ struct MobSpellEntry
 
 std::vector<MobSpellEntry> GenericSpellMobData;
 
-
 CreatureAI* GetAI_GenericSpellAI(Creature* pCreature);
 GenericAISpell BuildGenericAISpell(uint32 spellId, uint32 minCD, uint32 maxCD, uint32 target);
 void LoadSpellCacheData(GenericAISpell* spellToModify, SpellEntry const* spellInfos);
@@ -72,7 +71,8 @@ void LoadGenericAISpellsData();
 
 struct MANGOS_DLL_DECL GenericSpellMob : public ScriptedAI
 {
-    GenericSpellMob(Creature* pCreature) : ScriptedAI(pCreature)
+    GenericSpellMob(Creature* pCreature)
+        : ScriptedAI(pCreature)
     {
         m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
         Reset();
@@ -89,12 +89,12 @@ struct MANGOS_DLL_DECL GenericSpellMob : public ScriptedAI
     void AddSpell(uint32 spellId, uint32 CDmin, uint32 CDmax, uint8 target)
     {
         GenericAISpell spell;
-        spell.spellId = spellId;
-        spell.minCD = CDmin;
-        spell.maxCD = CDmax;
-        spell.target = target;
-        spell.minRange = 0.0f;
-        spell.maxRange = 40.0f;
+        spell.spellId   = spellId;
+        spell.minCD     = CDmin;
+        spell.maxCD     = CDmax;
+        spell.target    = target;
+        spell.minRange  = 0.0f;
+        spell.maxRange  = 40.0f;
         spell.healValue = 0;
         AddSpell(spell);
     }
@@ -103,9 +103,16 @@ struct MANGOS_DLL_DECL GenericSpellMob : public ScriptedAI
     {
         m_uiSpells.push_back(insertSpell);
 #ifdef DEBUG_ON
-        sLog.outString(">> Creature %u added spell %u (heal %u, range %f-%f, repeat %u-%u on target %u)", m_creature->GetEntry(),
-                      insertSpell.spellId, insertSpell.healValue, insertSpell.minRange, insertSpell.maxRange,
-                      insertSpell.minCD, insertSpell.maxCD, insertSpell.target);
+        sLog.outString(
+            ">> Creature %u added spell %u (heal %u, range %f-%f, repeat %u-%u on target %u)",
+            m_creature->GetEntry(),
+            insertSpell.spellId,
+            insertSpell.healValue,
+            insertSpell.minRange,
+            insertSpell.maxRange,
+            insertSpell.minCD,
+            insertSpell.maxCD,
+            insertSpell.target);
 #endif
     }
 
@@ -184,17 +191,13 @@ struct MANGOS_DLL_DECL GenericSpellMob : public ScriptedAI
 #ifdef DEBUG_ON
             sLog.outString("Spell %u update : timer %u", it->spellId, it->timer);
 #endif
-            if (it->timer  < uiDiff)
+            if (it->timer < uiDiff)
             {
                 Unit* target = NULL;
                 switch (it->target)
                 {
-                    case GENERIC_TARGET_SELF:
-                        target = m_creature;
-                        break;
-                    case GENERIC_TARGET_VICTIM:
-                        target = m_creature->getVictim();
-                        break;
+                    case GENERIC_TARGET_SELF: target = m_creature; break;
+                    case GENERIC_TARGET_VICTIM: target = m_creature->getVictim(); break;
                     case GENERIC_TARGET_HOSTILE_RAND:
                         target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0);
                         break;
@@ -205,9 +208,11 @@ struct MANGOS_DLL_DECL GenericSpellMob : public ScriptedAI
                     {
                         for (uint8 i = 0; i < 10; ++i)
                         {
-                            if (Unit* targetTest = m_creature->SelectAttackingTarget(ATTACKING_TARGET_TOPAGGRO, i))
+                            if (Unit* targetTest =
+                                    m_creature->SelectAttackingTarget(ATTACKING_TARGET_TOPAGGRO, i))
                             {
-                                if (m_creature->IsInRange(targetTest, it->minRange, it->maxRange, false))
+                                if (m_creature->IsInRange(
+                                        targetTest, it->minRange, it->maxRange, false))
                                 {
                                     target = targetTest;
                                     break;
@@ -215,7 +220,6 @@ struct MANGOS_DLL_DECL GenericSpellMob : public ScriptedAI
                             }
                         }
                         break;
-
                     }
                     case GENERIC_TARGET_FRIEND_NEED_HEAL:
                     {
@@ -225,7 +229,7 @@ struct MANGOS_DLL_DECL GenericSpellMob : public ScriptedAI
                     case GENERIC_TARGET_FRIEND_DISPELL_CC:
                     {
                         std::list<Creature*> creaList = DoFindFriendlyCC(it->maxRange);
-                        uint32 size = creaList.size();
+                        uint32 size                   = creaList.size();
 
                         while (!creaList.empty())
                         {
@@ -247,9 +251,10 @@ struct MANGOS_DLL_DECL GenericSpellMob : public ScriptedAI
                         uint32 healthDiff = target->GetMaxHealth() - target->GetHealth();
 
                         // Overheal test
-                        if (it->healValue > healthDiff
-                                && target->GetHealthPercent() > 50.0f    // Et qu'on est pas en dessous de la moitie de vie
-                           )
+                        if (it->healValue > healthDiff &&
+                            target->GetHealthPercent() >
+                                50.0f // Et qu'on est pas en dessous de la moitie de vie
+                        )
                             cast = false;
                     }
                 }
@@ -284,9 +289,11 @@ struct MANGOS_DLL_DECL GenericSpellMob : public ScriptedAI
                 {
                     DoCastSpellIfCan(target, it->spellId);
                     it->timer = urand(it->minCD, it->maxCD);
-                    if (it->spellFlags & SPELL_FLAG_STOP_ATTACK_TARGET && target != m_creature->getVictim()) // Change de cible
+                    if (it->spellFlags & SPELL_FLAG_STOP_ATTACK_TARGET &&
+                        target != m_creature->getVictim()) // Change de cible
                     {
-                        if (Unit* pSecondAggro = m_creature->SelectAttackingTarget(ATTACKING_TARGET_TOPAGGRO, 1))
+                        if (Unit* pSecondAggro =
+                                m_creature->SelectAttackingTarget(ATTACKING_TARGET_TOPAGGRO, 1))
                         {
                             if (pSecondAggro != target)
                             {
@@ -296,7 +303,8 @@ struct MANGOS_DLL_DECL GenericSpellMob : public ScriptedAI
                         }
                     }
 #ifdef DEBUG_ON
-                    sLog.outString("Casting %u on %s. CD is %u", it->spellId, target->GetName(), it->timer);
+                    sLog.outString(
+                        "Casting %u on %s. CD is %u", it->spellId, target->GetName(), it->timer);
 #endif
                 }
                 else
@@ -316,9 +324,9 @@ struct MANGOS_DLL_DECL GenericSpellMob : public ScriptedAI
 
 CreatureAI* GetAI_GenericSpellAI(Creature* pCreature)
 {
-    bool foundSpecific = false;
+    bool foundSpecific           = false;
     GenericSpellMob* ScriptedMob = new GenericSpellMob(pCreature);
-    uint32 creatureId = pCreature->GetEntry();
+    uint32 creatureId            = pCreature->GetEntry();
 #ifdef DEBUG_ON
     sLog.outString("GetAI for ID %u", creatureId);
 #endif
@@ -336,46 +344,44 @@ CreatureAI* GetAI_GenericSpellAI(Creature* pCreature)
         ScriptedMob->Finalize();
         return ScriptedMob;
     }
-    /* Sinon, ca signifie qu'il n'y a pas de script de ce mob en particulier.
-    Dans ce cas, on recupere ses sorts (spell[1-4]) et on lui ajoute en fonction de comment sont scriptes ces sorts
-    chez d'autres mobs.
-    */
+/* Sinon, ca signifie qu'il n'y a pas de script de ce mob en particulier.
+Dans ce cas, on recupere ses sorts (spell[1-4]) et on lui ajoute en fonction de comment sont
+scriptes ces sorts chez d'autres mobs.
+*/
 #ifdef DEBUG_ON
-    sLog.outString("Impossible de trouver les spells du mob %u. Va essayer de les deduire ...", pCreature->GetEntry());
+    sLog.outString("Impossible de trouver les spells du mob %u. Va essayer de les deduire ...",
+                   pCreature->GetEntry());
 #endif
-    bool mobFoundSpells[CREATURE_MAX_SPELLS] = {false};
-    CreatureInfo const* infos = pCreature->GetCreatureInfo();
+    bool mobFoundSpells[ CREATURE_MAX_SPELLS ] = {false};
+    CreatureInfo const* infos                  = pCreature->GetCreatureInfo();
     // Ne pas chercher les sorts = 0
     for (uint8 i = 0; i < CREATURE_MAX_SPELLS; ++i)
     {
-        if (infos->spells[i] == 0)
-            mobFoundSpells[i] = true;
+        if (infos->spells[ i ] == 0)
+            mobFoundSpells[ i ] = true;
     }
     // On ajoute les sorts qu'on connait de creature_spells
     for (iter = GenericSpellMobData.begin(); iter != GenericSpellMobData.end(); ++iter)
     {
         for (uint8 i = 0; i < CREATURE_MAX_SPELLS; ++i)
         {
-            if (!mobFoundSpells[i] // Pas deja ajoute
-                    && iter->spell.spellId == infos->spells[i] // Et le sort est trouve dans la DB
-               )
+            if (!mobFoundSpells[ i ]                         // Pas deja ajoute
+                && iter->spell.spellId == infos->spells[ i ] // Et le sort est trouve dans la DB
+            )
             {
                 ScriptedMob->AddSpell(iter->spell);
                 // Histoire de ne pas ajouter le meme sort 2 fois a la meme creature...
-                mobFoundSpells[i] = true;
+                mobFoundSpells[ i ] = true;
             }
         }
     }
     // Et finalement on essaye d'ajouter les autres
     for (uint8 i = 0; i < CREATURE_MAX_SPELLS; ++i)
     {
-        if (!mobFoundSpells[i])
+        if (!mobFoundSpells[ i ])
         {
             GenericAISpell mySpell = BuildGenericAISpell(
-                                         infos->spells[i],
-                                         DEFAULT_MIN_CD,
-                                         DEFAULT_MAX_CD,
-                                         DEFAULT_TARGET);
+                infos->spells[ i ], DEFAULT_MIN_CD, DEFAULT_MAX_CD, DEFAULT_TARGET);
             if (mySpell.spellId != 0) // Pas d'erreur
                 ScriptedMob->AddSpell(mySpell);
         }
@@ -390,10 +396,10 @@ CreatureAI* GetAI_GenericSpellAI(Creature* pCreature)
 GenericAISpell BuildGenericAISpell(uint32 spellId, uint32 minCD, uint32 maxCD, uint32 target)
 {
     GenericAISpell tmpSpell;
-    tmpSpell.spellId  = spellId;
-    tmpSpell.minCD    = minCD;
-    tmpSpell.maxCD    = maxCD;
-    tmpSpell.target   = target;
+    tmpSpell.spellId = spellId;
+    tmpSpell.minCD   = minCD;
+    tmpSpell.maxCD   = maxCD;
+    tmpSpell.target  = target;
 
     SpellEntry const* spell = sSpellMgr.GetSpellEntry(tmpSpell.spellId);
     if (!spell)
@@ -410,16 +416,17 @@ GenericAISpell BuildGenericAISpell(uint32 spellId, uint32 minCD, uint32 maxCD, u
 
 void LoadSpellCacheData(GenericAISpell* spellToModify, SpellEntry const* spellInfos)
 {
-    spellToModify->minRange = 0.0f;
-    spellToModify->maxRange = 40.0f;
-    spellToModify->healValue = 0;
-    spellToModify->spellFlags = 0;
-    spellToModify->initialMinCD = 0; //spellToModify->minCD;
-    spellToModify->initialMaxCD = 0; //spellToModify->maxCD;
+    spellToModify->minRange        = 0.0f;
+    spellToModify->maxRange        = 40.0f;
+    spellToModify->healValue       = 0;
+    spellToModify->spellFlags      = 0;
+    spellToModify->initialMinCD    = 0; // spellToModify->minCD;
+    spellToModify->initialMaxCD    = 0; // spellToModify->maxCD;
     spellToModify->targetAuraState = spellInfos->TargetAuraState;
 
 #ifdef DEBUG_ON
-    sLog.outString(">> Loading Spell %s (id=%u) !", spellInfos->SpellName[2], spellToModify->spellId);
+    sLog.outString(
+        ">> Loading Spell %s (id=%u) !", spellInfos->SpellName[ 2 ], spellToModify->spellId);
 #endif
 
     // Check de la portee
@@ -433,8 +440,8 @@ void LoadSpellCacheData(GenericAISpell* spellToModify, SpellEntry const* spellIn
     // Heal check
     for (uint8 i = 0; i < 3; ++i)
     {
-        if (spellInfos->Effect[i] == 10) // HEAL
-            spellToModify->healValue += spellInfos->EffectBasePoints[i];
+        if (spellInfos->Effect[ i ] == 10) // HEAL
+            spellToModify->healValue += spellInfos->EffectBasePoints[ i ];
     }
 
     if (spellToModify->target == GENERIC_TARGET_AUTO)
@@ -458,14 +465,14 @@ void LoadSpellCacheData(GenericAISpell* spellToModify, SpellEntry const* spellIn
         {
             case 21: // Enrager
             {
-                spellToModify->target = GENERIC_TARGET_SELF;
+                spellToModify->target       = GENERIC_TARGET_SELF;
                 spellToModify->initialMinCD = 60000;
                 spellToModify->initialMaxCD = 60000;
                 break;
             }
             case 44: // Charge
             {
-                spellToModify->target = GENERIC_TARGET_HOSTILE_IN_RANGE;
+                spellToModify->target       = GENERIC_TARGET_HOSTILE_IN_RANGE;
                 spellToModify->initialMinCD = 0;
                 spellToModify->initialMaxCD = 1;
                 spellToModify->minCD        = 10000;
@@ -486,11 +493,11 @@ void LoadSpellCacheData(GenericAISpell* spellToModify, SpellEntry const* spellIn
         // Autres modifs :
         for (uint8 i = 0; i < 3; ++i)
         {
-            switch (spellInfos->Effect[i])
+            switch (spellInfos->Effect[ i ])
             {
                 case SPELL_EFFECT_APPLY_AURA:
                 {
-                    switch (spellInfos->EffectApplyAuraName[i])
+                    switch (spellInfos->EffectApplyAuraName[ i ])
                     {
                         case SPELL_AURA_MOD_CHARM:
                         case SPELL_AURA_MOD_POSSESS:
@@ -505,19 +512,23 @@ void LoadSpellCacheData(GenericAISpell* spellToModify, SpellEntry const* spellIn
         if (spellInfos->AuraInterruptFlags & AURA_INTERRUPT_FLAG_DAMAGE)
             spellToModify->spellFlags |= SPELL_FLAG_STOP_ATTACK_TARGET;
         // Bouclier divin, bene de protection, bloc de glace et autres : CD different
-        // SELECT field0, field6, field7, field8, field122 FROM spells WHERE field8 & 0x200000 AND field6 & 0x50000 AND (field7 & 0x8000 OR field7=0) limit 0,50;
-        if (spellInfos->Attributes & 0x50000 && (spellInfos->AttributesEx & 0x8000 || spellInfos->AttributesEx == 0) && spellInfos->AttributesEx2 & 0x200000)
+        // SELECT field0, field6, field7, field8, field122 FROM spells WHERE field8 & 0x200000 AND
+        // field6 & 0x50000 AND (field7 & 0x8000 OR field7=0) limit 0,50;
+        if (spellInfos->Attributes & 0x50000 &&
+            (spellInfos->AttributesEx & 0x8000 || spellInfos->AttributesEx == 0) &&
+            spellInfos->AttributesEx2 & 0x200000)
         {
             // Apres 30 a 50 sec de combat
             spellToModify->initialMinCD = 30000;
             spellToModify->initialMaxCD = 50000;
             // Toutes les 3 a 4 minutes ensuite
-            spellToModify->minCD        = 180000;
-            spellToModify->maxCD        = 240000;
+            spellToModify->minCD = 180000;
+            spellToModify->maxCD = 240000;
         }
 #ifdef DEBUG_ON
         if (spellToModify->spellFlags != 0)
-            sLog.outString("SpellFlags are 0x%x for %u", spellToModify->spellFlags, spellToModify->spellId);
+            sLog.outString(
+                "SpellFlags are 0x%x for %u", spellToModify->spellFlags, spellToModify->spellId);
 #endif
     }
 }
@@ -525,7 +536,8 @@ void LoadSpellCacheData(GenericAISpell* spellToModify, SpellEntry const* spellIn
 void LoadGenericAISpellsData()
 {
     GenericSpellMobData.clear();
-    QueryResult* pResult = WorldDatabase.PQuery("SELECT entry, spell, minCD, maxCD, target FROM creature_spells");
+    std::shared_ptr<QueryResult> pResult =
+        WorldDatabase.PQuery("SELECT entry, spell, minCD, maxCD, target FROM creature_spells");
     sLog.outString("Nostalrius: Loading 'creature_spells'");
 
     if (pResult)
@@ -537,22 +549,18 @@ void LoadGenericAISpellsData()
             Field* pFields = pResult->Fetch();
             MobSpellEntry pTmp;
 
-            pTmp.entry          = pFields[0].GetUInt32();
+            pTmp.entry = pFields[ 0 ].GetUInt32();
 
-            pTmp.spell = BuildGenericAISpell(
-                             pFields[1].GetUInt32(), // spellId
-                             pFields[2].GetUInt32(), // minCD
-                             pFields[3].GetUInt32(), // maxCD
-                             pFields[4].GetUInt32()  // target
-                         );
+            pTmp.spell = BuildGenericAISpell(pFields[ 1 ].GetUInt32(), // spellId
+                                             pFields[ 2 ].GetUInt32(), // minCD
+                                             pFields[ 3 ].GetUInt32(), // maxCD
+                                             pFields[ 4 ].GetUInt32()  // target
+            );
             if (pTmp.spell.spellId != 0)
                 GenericSpellMobData.push_back(pTmp);
 
             ++uiCount;
-        }
-        while (pResult->NextRow());
-
-        delete pResult;
+        } while (pResult->NextRow());
 
         sLog.outString("");
         sLog.outString(">> Loaded %u spells datas", uiCount);
@@ -566,10 +574,10 @@ void LoadGenericAISpellsData()
 
 void AddSC_generic_spell_ai()
 {
-    Script *newscript;
+    Script* newscript;
 
-    newscript = new Script;
-    newscript->Name = "generic_spell_ai";
+    newscript        = new Script;
+    newscript->Name  = "generic_spell_ai";
     newscript->GetAI = &GetAI_GenericSpellAI;
     newscript->RegisterSelf();
     LoadGenericAISpellsData();

@@ -23,46 +23,47 @@
     \ingroup mangosd
 */
 
-#include "Common.h"
-#include "Database/DatabaseEnv.h"
-#include "Log.h"
 #include "ChatSocket.h"
-#include "World.h"
-#include "Config/Config.h"
-#include "Util.h"
-#include "SharedDefines.h"
-#include "ObjectAccessor.h"
-#include "PlayerBotMgr.h"
-#include "ObjectMgr.h"
 #include "AccountMgr.h"
 #include "Chat.h"
+#include "Common.h"
+#include "Config/Config.h"
+#include "Database/DatabaseEnv.h"
+#include "Log.h"
+#include "ObjectAccessor.h"
+#include "ObjectMgr.h"
+#include "PlayerBotMgr.h"
+#include "SharedDefines.h"
+#include "Util.h"
+#include "World.h"
 
-#define DEBUG_OUT_CHAT(...) //sLog.outString(__VA_ARGS__)
+#define DEBUG_OUT_CHAT(...) // sLog.outString(__VA_ARGS__)
 
-class OfflineChatCommandsHandler: public ChatHandler
+class OfflineChatCommandsHandler : public ChatHandler
 {
 public:
-    OfflineChatCommandsHandler(WorldSession* session, std::stringstream& buf) : ChatHandler(session), m_buff(buf)
+    OfflineChatCommandsHandler(WorldSession* session, std::stringstream& buf)
+        : ChatHandler(session)
+        , m_buff(buf)
     {
     }
     virtual ~OfflineChatCommandsHandler() {}
-    void SendSysMessage(const char *str)
-    {
-        m_buff << str << std::endl;
-    }
+    void SendSysMessage(const char* str) { m_buff << str << std::endl; }
+
 protected:
     std::stringstream& m_buff;
 };
 
 /// OfflineChatSocket constructor
-OfflineChatSocket::OfflineChatSocket() : OfflineChatHandler(),
-    pendingCommands(0, USYNC_THREAD, "pendingCommands"),
-    outActive(false),
-    inputBufferLen(0),
-    outputBufferLen(0),
-    stage(NONE)
+OfflineChatSocket::OfflineChatSocket()
+    : OfflineChatHandler()
+    , pendingCommands(0, USYNC_THREAD, "pendingCommands")
+    , outActive(false)
+    , inputBufferLen(0)
+    , outputBufferLen(0)
+    , stage(NONE)
 {
-    reference_counting_policy ().value (ACE_Event_Handler::Reference_Counting_Policy::ENABLED);
+    reference_counting_policy().value(ACE_Event_Handler::Reference_Counting_Policy::ENABLED);
 }
 
 /// OfflineChatSocket destructor
@@ -72,19 +73,22 @@ OfflineChatSocket::~OfflineChatSocket()
 }
 
 /// Accept an incoming connection
-int OfflineChatSocket::open(void* )
+int OfflineChatSocket::open(void*)
 {
-    if (reactor ()->register_handler(this, ACE_Event_Handler::READ_MASK | ACE_Event_Handler::WRITE_MASK) == -1)
+    if (reactor()->register_handler(
+            this, ACE_Event_Handler::READ_MASK | ACE_Event_Handler::WRITE_MASK) == -1)
     {
-        sLog.outError ("OfflineChatSocket::open: unable to register client handler errno = %s", ACE_OS::strerror (errno));
+        sLog.outError("OfflineChatSocket::open: unable to register client handler errno = %s",
+                      ACE_OS::strerror(errno));
         return -1;
     }
 
     ACE_INET_Addr remote_addr;
 
-    if (peer ().get_remote_addr (remote_addr) == -1)
+    if (peer().get_remote_addr(remote_addr) == -1)
     {
-        sLog.outError ("OfflineChatSocket::open: peer ().get_remote_addr errno = %s", ACE_OS::strerror (errno));
+        sLog.outError("OfflineChatSocket::open: peer ().get_remote_addr errno = %s",
+                      ACE_OS::strerror(errno));
         return -1;
     }
     return 0;
@@ -92,7 +96,7 @@ int OfflineChatSocket::open(void* )
 
 int OfflineChatSocket::close(int)
 {
-    if(closing_)
+    if (closing_)
         return -1;
     shutdown();
 
@@ -102,47 +106,47 @@ int OfflineChatSocket::close(int)
     return 0;
 }
 
-int OfflineChatSocket::handle_close (ACE_HANDLE h, ACE_Reactor_Mask)
+int OfflineChatSocket::handle_close(ACE_HANDLE h, ACE_Reactor_Mask)
 {
-    if(closing_)
+    if (closing_)
         return -1;
-    ACE_GUARD_RETURN (ACE_Thread_Mutex, Guard, outBufferLock, -1);
+    ACE_GUARD_RETURN(ACE_Thread_Mutex, Guard, outBufferLock, -1);
 
     closing_ = true;
 
     if (h == ACE_INVALID_HANDLE)
-        peer ().close_writer ();
+        peer().close_writer();
     remove_reference();
     return 0;
 }
 
-int OfflineChatSocket::handle_output (ACE_HANDLE)
+int OfflineChatSocket::handle_output(ACE_HANDLE)
 {
-    ACE_GUARD_RETURN (ACE_Thread_Mutex, Guard, outBufferLock, -1);
+    ACE_GUARD_RETURN(ACE_Thread_Mutex, Guard, outBufferLock, -1);
 
-    if(closing_)
+    if (closing_)
         return -1;
 
     if (!outputBufferLen)
     {
-        if(reactor()->cancel_wakeup(this, ACE_Event_Handler::WRITE_MASK) == -1)
+        if (reactor()->cancel_wakeup(this, ACE_Event_Handler::WRITE_MASK) == -1)
         {
-            sLog.outError ("OfflineChatSocket::handle_output: error while cancel_wakeup");
+            sLog.outError("OfflineChatSocket::handle_output: error while cancel_wakeup");
             return -1;
         }
         outActive = false;
         return 0;
     }
 #ifdef MSG_NOSIGNAL
-    ssize_t n = peer ().send (outputBuffer, outputBufferLen, MSG_NOSIGNAL);
+    ssize_t n = peer().send(outputBuffer, outputBufferLen, MSG_NOSIGNAL);
 #else
-    ssize_t n = peer ().send (outputBuffer, outputBufferLen);
+    ssize_t n = peer().send(outputBuffer, outputBufferLen);
 #endif // MSG_NOSIGNAL
 
-    if(n<=0)
+    if (n <= 0)
         return -1;
 
-    ACE_OS::memmove(outputBuffer, outputBuffer+n, outputBufferLen-n);
+    ACE_OS::memmove(outputBuffer, outputBuffer + n, outputBufferLen - n);
 
     outputBufferLen -= n;
 
@@ -165,7 +169,8 @@ int OfflineChatSocket::handle_input(ACE_HANDLE)
         return -1;
     }
 
-    int readBytes = peer().recv(inputBuffer+inputBufferLen, OFFCHAT_BUFF_SIZE-inputBufferLen-1);
+    int readBytes =
+        peer().recv(inputBuffer + inputBufferLen, OFFCHAT_BUFF_SIZE - inputBufferLen - 1);
 
     if (readBytes <= 0)
     {
@@ -176,10 +181,10 @@ int OfflineChatSocket::handle_input(ACE_HANDLE)
 
     ///- Discard data after line break or line feed
     bool endofpacket = false;
-    for (; readBytes > 0 ; --readBytes)
+    for (; readBytes > 0; --readBytes)
     {
-        char c = inputBuffer[inputBufferLen];
-        if (c == '\r'|| c == '\n')
+        char c = inputBuffer[ inputBufferLen ];
+        if (c == '\r' || c == '\n')
         {
             endofpacket = true;
             break;
@@ -188,8 +193,8 @@ int OfflineChatSocket::handle_input(ACE_HANDLE)
     }
     if (!endofpacket)
         return -1;
-    inputBuffer[inputBufferLen] = '\0';
-    inputBufferLen              = 0;
+    inputBuffer[ inputBufferLen ] = '\0';
+    inputBufferLen                = 0;
 
     // Entree (texte) : plguid msgtype chanordest message
     /* Input (text):
@@ -218,26 +223,28 @@ int OfflineChatSocket::handle_input(ACE_HANDLE)
         case CHAT_MSG_CHANNEL:
         case CHAT_MSG_CHANNEL_JOIN:
         case CHAT_MSG_CHANNEL_LEAVE:
-        case CHAT_MSG_WHISPER:
-            oss >> chanOrDest;
-            break;
+        case CHAT_MSG_WHISPER: oss >> chanOrDest; break;
     }
     getline(oss, message);
     message = TrimLeft(message);
 
     DEBUG_OUT_CHAT("Raw='%s' SessionKey=%s Guid=%u MsgType=%i Chan=%s Msg=\"%s\"",
-        inputBuffer, sessionKey.c_str(), playerGuid, messageType,
-        chanOrDest.c_str(), message.c_str());
+                   inputBuffer,
+                   sessionKey.c_str(),
+                   playerGuid,
+                   messageType,
+                   chanOrDest.c_str(),
+                   message.c_str());
 
     // Let's login the player, if not already online
     uint32 acc = sObjectMgr.GetPlayerAccountIdByGUID(playerGuid);
-    QueryResult* auth = LoginDatabase.PQuery("SELECT 1 FROM account WHERE id=%u AND sessionkey=\"%s\"", acc, sessionKey.c_str());
+    auto auth  = LoginDatabase.PQuery(
+        "SELECT 1 FROM account WHERE id=%u AND sessionkey=\"%s\"", acc, sessionKey.c_str());
     if (!auth)
     {
         sendf("err_auth\n");
         return 0;
     }
-    delete auth;
 
     WorldSession* sess = sWorld.FindSession(acc);
     if (sess && sess->GetSocket())
@@ -287,27 +294,24 @@ int OfflineChatSocket::handle_input(ACE_HANDLE)
                 return 0;
             }
             // Disabled. Needs to be thread safe!
-            //OfflineChatCommandsHandler(player->GetSession(), out).ParseCommands(message.c_str());
+            // OfflineChatCommandsHandler(player->GetSession(), out).ParseCommands(message.c_str());
         }
         else
         {
             // Or just queue a normal chat packet
             WorldPacket* data = new WorldPacket(CMSG_MESSAGECHAT, 100);
-            uint32 lang = player->GetTeam() == ALLIANCE ? LANG_COMMON : LANG_ORCISH;
+            uint32 lang       = player->GetTeam() == ALLIANCE ? LANG_COMMON : LANG_ORCISH;
             *data << messageType;
             *data << lang;
             switch (messageType)
             {
                 case CHAT_MSG_CHANNEL:
-                case CHAT_MSG_WHISPER:
-                    *data << chanOrDest;
+                case CHAT_MSG_WHISPER: *data << chanOrDest;
                 case CHAT_MSG_YELL:
                 case CHAT_MSG_SAY:
                 case CHAT_MSG_GUILD:
                 case CHAT_MSG_OFFICER:
-                case CHAT_MSG_PARTY:
-                    *data << message;
-                    break;
+                case CHAT_MSG_PARTY: *data << message; break;
                 case CHAT_MSG_CHANNEL_JOIN:
                     data->Initialize(CMSG_JOIN_CHANNEL, 20);
                     *data << chanOrDest;
@@ -334,25 +338,24 @@ int OfflineChatSocket::handle_input(ACE_HANDLE)
 /// Output function
 int OfflineChatSocket::sendf(const char* msg)
 {
-    ACE_GUARD_RETURN (ACE_Thread_Mutex, Guard, outBufferLock, -1);
+    ACE_GUARD_RETURN(ACE_Thread_Mutex, Guard, outBufferLock, -1);
 
     if (closing_)
         return -1;
 
     int msgLen = strlen(msg);
 
-    if (msgLen+outputBufferLen > OFFCHAT_BUFF_SIZE)
+    if (msgLen + outputBufferLen > OFFCHAT_BUFF_SIZE)
         return -1;
 
-    ACE_OS::memcpy(outputBuffer+outputBufferLen, msg, msgLen);
+    ACE_OS::memcpy(outputBuffer + outputBufferLen, msg, msgLen);
     outputBufferLen += msgLen;
 
     if (!outActive)
     {
-        if (reactor ()->schedule_wakeup
-            (this, ACE_Event_Handler::WRITE_MASK) == -1)
+        if (reactor()->schedule_wakeup(this, ACE_Event_Handler::WRITE_MASK) == -1)
         {
-            sLog.outError ("OfflineChatSocket::sendf error while schedule_wakeup");
+            sLog.outError("OfflineChatSocket::sendf error while schedule_wakeup");
             return -1;
         }
         outActive = true;

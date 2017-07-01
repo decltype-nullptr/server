@@ -19,13 +19,13 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include "Common.h"
 #include "CharacterDatabaseCleaner.h"
-#include "World.h"
-#include "Database/DatabaseEnv.h"
+#include "Common.h"
 #include "DBCStores.h"
+#include "Database/DatabaseEnv.h"
 #include "ProgressBar.h"
 #include "SpellMgr.h"
+#include "World.h"
 
 void CharacterDatabaseCleaner::CleanDatabase()
 {
@@ -36,11 +36,10 @@ void CharacterDatabaseCleaner::CleanDatabase()
     sLog.outString("Cleaning character database...");
 
     // check flags which clean ups are necessary
-    QueryResult* result = CharacterDatabase.PQuery("SELECT cleaning_flags FROM saved_variables");
+    auto result = CharacterDatabase.PQuery("SELECT cleaning_flags FROM saved_variables");
     if (!result)
         return;
-    uint32 flags = (*result)[0].GetUInt32();
-    delete result;
+    uint32 flags = (*result)[ 0 ].GetUInt32();
 
     // clean up
     if (flags & CLEANING_FLAG_SKILLS)
@@ -50,9 +49,11 @@ void CharacterDatabaseCleaner::CleanDatabase()
     CharacterDatabase.Execute("UPDATE saved_variables SET cleaning_flags = 0");
 }
 
-void CharacterDatabaseCleaner::CheckUnique(const char* column, const char* table, bool (*check)(uint32))
+void CharacterDatabaseCleaner::CheckUnique(const char* column,
+                                           const char* table,
+                                           bool (*check)(uint32))
 {
-    QueryResult* result = CharacterDatabase.PQuery("SELECT DISTINCT %s FROM %s", column, table);
+    auto result = CharacterDatabase.PQuery("SELECT DISTINCT %s FROM %s", column, table);
     if (!result)
     {
         sLog.outString("Table %s is empty.", table);
@@ -66,9 +67,9 @@ void CharacterDatabaseCleaner::CheckUnique(const char* column, const char* table
     {
         bar.step();
 
-        Field *fields = result->Fetch();
+        Field* fields = result->Fetch();
 
-        uint32 id = fields[0].GetUInt32();
+        uint32 id = fields[ 0 ].GetUInt32();
 
         if (!check(id))
         {
@@ -81,9 +82,7 @@ void CharacterDatabaseCleaner::CheckUnique(const char* column, const char* table
                 ss << ",";
             ss << id;
         }
-    }
-    while (result->NextRow());
-    delete result;
+    } while (result->NextRow());
 
     if (found)
     {

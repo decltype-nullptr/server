@@ -1,20 +1,22 @@
-#include "Database/DatabaseEnv.h"
-#include "World.h"
-#include "Log.h"
-#include "ProgressBar.h"
-#include "Policies/SingletonImp.h"
-#include "Player.h"
-#include "Item.h"
+#include "AuctionHouseBotMgr.h"
 #include "AuctionHouseMgr.h"
+#include "Chat.h"
+#include "Config/Config.h"
+#include "Database/DatabaseEnv.h"
+#include "Item.h"
+#include "Log.h"
 #include "ObjectAccessor.h"
 #include "ObjectMgr.h"
-#include "AuctionHouseBotMgr.h"
-#include "Config/Config.h"
-#include "Chat.h"
+#include "Player.h"
+#include "Policies/SingletonImp.h"
+#include "ProgressBar.h"
+#include "World.h"
 
 INSTANTIATE_SINGLETON_1(AuctionHouseBotMgr);
 
-AuctionHouseBotMgr::AuctionHouseBotMgr() : auctionHouseEntry(NULL), m_loaded(false)
+AuctionHouseBotMgr::AuctionHouseBotMgr()
+    : auctionHouseEntry(NULL)
+    , m_loaded(false)
 {
     config = NULL;
 }
@@ -42,7 +44,7 @@ void AuctionHouseBotMgr::load()
         config = NULL;
     }
     /*2 - LOAD */
-    QueryResult* result = WorldDatabase.Query("SELECT item,stack,bid,buyout FROM auctionhousebot");
+    auto result = WorldDatabase.Query("SELECT item,stack,bid,buyout FROM auctionhousebot");
 
     if (!result)
     {
@@ -53,22 +55,20 @@ void AuctionHouseBotMgr::load()
 
     uint32 count = 0;
 
-    Field *fields;
+    Field* fields;
     do
     {
         AuctionHouseBotEntry e;
-        fields    = result->Fetch();
-        e.item    = fields[0].GetUInt32();
-        e.stack   = fields[1].GetUInt32();
-        e.bid     = fields[2].GetUInt32();
-        e.buyout  = fields[3].GetUInt32();
+        fields   = result->Fetch();
+        e.item   = fields[ 0 ].GetUInt32();
+        e.stack  = fields[ 1 ].GetUInt32();
+        e.bid    = fields[ 2 ].GetUInt32();
+        e.buyout = fields[ 3 ].GetUInt32();
 
         entries.push_back(e);
 
         ++count;
-    }
-    while (result->NextRow());
-    delete result;
+    } while (result->NextRow());
 
     sLog.outString();
     sLog.outString(">> Loaded %u AuctionHouseBot items", count);
@@ -102,7 +102,7 @@ void AuctionHouseBotMgr::update(bool force /* = false */)
     if (!(config->enable || force))
         return;
 
-    if (entries.size() == 0 ||  /*config->botguid==0 ||*/ config->botaccount == 0)
+    if (entries.size() == 0 || /*config->botguid==0 ||*/ config->botaccount == 0)
     {
         sLog.outError("AuctionHouseBotMgr::update() : Mauvaise config, ou table vide.");
         return;
@@ -123,13 +123,13 @@ void AuctionHouseBotMgr::update(bool force /* = false */)
 
     while (auctions < items)
     {
-        AuctionHouseBotEntry item = entries[urand(0, entriesCount - 1)];
+        AuctionHouseBotEntry item = entries[ urand(0, entriesCount - 1) ];
         additem(item, auctionHouse);
         auctions++;
     }
 }
 
-void AuctionHouseBotMgr::additem(AuctionHouseBotEntry e, AuctionHouseObject *auctionHouse)
+void AuctionHouseBotMgr::additem(AuctionHouseBotEntry e, AuctionHouseObject* auctionHouse)
 {
     ASSERT(auctionHouseEntry);
 
@@ -156,37 +156,29 @@ void AuctionHouseBotMgr::additem(AuctionHouseBotEntry e, AuctionHouseObject *auc
     uint32 etime = urand(1, 3);
     switch (etime)
     {
-        case 1:
-            etime = 43200;
-            break;
-        case 2:
-            etime = 86400;
-            break;
-        case 3:
-            etime = 172800;
-            break;
-        default:
-            etime = 86400;
-            break;
+        case 1: etime = 43200; break;
+        case 2: etime = 86400; break;
+        case 3: etime = 172800; break;
+        default: etime = 86400; break;
     }
     item->SetCount(e.stack);
 
     uint32 dep = sAuctionMgr.GetAuctionDeposit(auctionHouseEntry, etime, item);
 
-    AuctionEntry* auctionEntry       = new AuctionEntry;
-    auctionEntry->Id                 = sObjectMgr.GenerateAuctionID();
-    //auctionEntry->auctioneer       = config->auctionnerguid;
-    auctionEntry->auctionHouseEntry  = auctionHouseEntry;
+    AuctionEntry* auctionEntry = new AuctionEntry;
+    auctionEntry->Id           = sObjectMgr.GenerateAuctionID();
+    // auctionEntry->auctioneer       = config->auctionnerguid;
+    auctionEntry->auctionHouseEntry = auctionHouseEntry;
     auctionEntry->itemGuidLow       = item->GetGUIDLow();
-    auctionEntry->itemTemplate       = item->GetEntry();
-    auctionEntry->owner              = 0;
-    auctionEntry->startbid           = e.bid;
-    auctionEntry->buyout             = e.buyout;
-    auctionEntry->bidder             = 0;
-    auctionEntry->bid                = 0;
-    auctionEntry->deposit            = dep;
+    auctionEntry->itemTemplate      = item->GetEntry();
+    auctionEntry->owner             = 0;
+    auctionEntry->startbid          = e.bid;
+    auctionEntry->buyout            = e.buyout;
+    auctionEntry->bidder            = 0;
+    auctionEntry->bid               = 0;
+    auctionEntry->deposit           = dep;
     auctionEntry->depositTime       = time(NULL);
-    auctionEntry->expireTime        = (time_t) etime + time(NULL);
+    auctionEntry->expireTime        = (time_t)etime + time(NULL);
 
     item->SaveToDB();
 
@@ -195,16 +187,14 @@ void AuctionHouseBotMgr::additem(AuctionHouseBotEntry e, AuctionHouseObject *auc
     auctionEntry->SaveToDB();
 }
 
-
-
-bool ChatHandler::HandleAHBotUpdateCommand(char *args)
+bool ChatHandler::HandleAHBotUpdateCommand(char* args)
 {
     sAuctionHouseBotMgr.update(true);
     SendSysMessage("[AHBot] objets ajoutes");
     return true;
 }
 
-bool ChatHandler::HandleAHBotReloadCommand(char *args)
+bool ChatHandler::HandleAHBotReloadCommand(char* args)
 {
     sAuctionHouseBotMgr.load();
     SendSysMessage("[AHBot] Recharge");

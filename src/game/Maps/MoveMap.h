@@ -20,8 +20,8 @@
 #define _MOVE_MAP_H
 
 #include <ace/Guard_T.h>
-#include <ace/Thread_Mutex.h>
 #include <ace/RW_Mutex.h>
+#include <ace/Thread_Mutex.h>
 
 #include "Utilities/UnorderedMapSet.h"
 
@@ -32,12 +32,12 @@
 //  memory management
 inline void* dtCustomAlloc(int size, dtAllocHint /*hint*/)
 {
-    return (void*)new unsigned char[size];
+    return (void*)new unsigned char[ size ];
 }
 
 inline void dtCustomFree(void* ptr)
 {
-    delete [] (unsigned char*)ptr;
+    delete[](unsigned char*) ptr;
 }
 
 //  move map related classes
@@ -49,11 +49,14 @@ namespace MMAP
     // dummy struct to hold map's mmap data
     struct MMapData
     {
-        MMapData(dtNavMesh* mesh) : navMesh(mesh) {}
+        MMapData(dtNavMesh* mesh)
+            : navMesh(mesh)
+        {
+        }
         ~MMapData()
         {
-            for (NavMeshQuerySet::iterator i = navMeshQueries.begin(); i != navMeshQueries.end(); ++i)
-                dtFreeNavMeshQuery(i->second);
+            for (const auto& i : navMeshQueries)
+                dtFreeNavMeshQuery(i.second);
 
             if (navMesh)
                 dtFreeNavMesh(navMesh);
@@ -62,9 +65,9 @@ namespace MMAP
         dtNavMesh* navMesh;
 
         // we have to use single dtNavMeshQuery for every instance, since those are not thread safe
-        NavMeshQuerySet navMeshQueries;     // threadId to query
+        NavMeshQuerySet navMeshQueries; // threadId to query
         ACE_RW_Mutex navMeshQueries_lock;
-        MMapTileSet mmapLoadedTiles;        // maps [map grid coords] to [dtTile]
+        MMapTileSet mmapLoadedTiles; // maps [map grid coords] to [dtTile]
         ACE_Thread_Mutex tilesLoading_lock;
     };
 
@@ -74,33 +77,37 @@ namespace MMAP
     // holds all all access to mmap loading unloading and meshes
     class MMapManager
     {
-        public:
-            MMapManager() : loadedTiles(0) {}
-            ~MMapManager();
+    public:
+        MMapManager()
+            : loadedTiles(0)
+        {
+        }
+        ~MMapManager();
 
-            bool loadMap(uint32 mapId, int32 x, int32 y);
-            bool loadGameObject(uint32 displayId);
-            bool unloadMap(uint32 mapId, int32 x, int32 y);
-            bool unloadMap(uint32 mapId);
-            bool unloadMapInstance(uint32 mapId, uint32 instanceId);
+        bool loadMap(uint32 mapId, int32 x, int32 y);
+        bool loadGameObject(uint32 displayId);
+        bool unloadMap(uint32 mapId, int32 x, int32 y);
+        bool unloadMap(uint32 mapId);
+        bool unloadMapInstance(uint32 mapId, uint32 instanceId);
 
-            // The returned [dtNavMeshQuery const*] is NOT threadsafe
-            // Returns a NavMeshQuery valid for current thread only.
-            dtNavMeshQuery const* GetNavMeshQuery(uint32 mapId);
-            dtNavMeshQuery const* GetModelNavMeshQuery(uint32 displayId);
-            dtNavMesh const* GetNavMesh(uint32 mapId);
+        // The returned [dtNavMeshQuery const*] is NOT threadsafe
+        // Returns a NavMeshQuery valid for current thread only.
+        dtNavMeshQuery const* GetNavMeshQuery(uint32 mapId);
+        dtNavMeshQuery const* GetModelNavMeshQuery(uint32 displayId);
+        dtNavMesh const* GetNavMesh(uint32 mapId);
 
-            uint32 getLoadedTilesCount() const { return loadedTiles; }
-            uint32 getLoadedMapsCount() const { return loadedMMaps.size(); }
-        private:
-            bool loadMapData(uint32 mapId);
-            uint32 packTileID(int32 x, int32 y);
+        uint32 getLoadedTilesCount() const { return loadedTiles; }
+        uint32 getLoadedMapsCount() const { return loadedMMaps.size(); }
 
-            MMapDataSet loadedMMaps;
-            ACE_RW_Mutex loadedMMaps_lock;
-            MMapDataSet loadedModels;
-            uint32 loadedTiles;
-            ACE_Thread_Mutex lockForModels;
+    private:
+        bool loadMapData(uint32 mapId);
+        uint32 packTileID(int32 x, int32 y);
+
+        MMapDataSet loadedMMaps;
+        ACE_RW_Mutex loadedMMaps_lock;
+        MMapDataSet loadedModels;
+        uint32 loadedTiles;
+        ACE_Thread_Mutex lockForModels;
     };
 
     // static class
@@ -108,10 +115,10 @@ namespace MMAP
     // access point to MMapManager singelton
     class MMapFactory
     {
-        public:
-            static MMapManager* createOrGetMMapManager();
-            static void clear();
+    public:
+        static MMapManager* createOrGetMMapManager();
+        static void clear();
     };
 }
 
-#endif  // _MOVE_MAP_H
+#endif // _MOVE_MAP_H

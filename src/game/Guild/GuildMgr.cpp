@@ -17,10 +17,10 @@
  */
 
 #include "GuildMgr.h"
+#include "Database/DatabaseEnv.h"
 #include "Guild.h"
 #include "Log.h"
 #include "ObjectGuid.h"
-#include "Database/DatabaseEnv.h"
 #include "Policies/SingletonImp.h"
 #include "ProgressBar.h"
 #include "World.h"
@@ -39,7 +39,7 @@ GuildMgr::~GuildMgr()
 
 void GuildMgr::AddGuild(Guild* guild)
 {
-    m_GuildMap[guild->GetId()] = guild;
+    m_GuildMap[ guild->GetId() ] = guild;
 }
 
 void GuildMgr::RemoveGuild(uint32 guildId)
@@ -87,10 +87,13 @@ void GuildMgr::LoadGuilds()
 {
     uint32 count = 0;
 
-    //                                                    0             1          2          3           4           5           6
-    QueryResult *result = CharacterDatabase.Query("SELECT guild.guildid,guild.name,leaderguid,EmblemStyle,EmblemColor,BorderStyle,BorderColor,"
-                          //   7               8    9    10
-                          "BackgroundColor,info,motd,createdate FROM guild ORDER BY guildid ASC");
+    //                                                    0             1          2          3
+    //                                                    4           5           6
+    auto result = CharacterDatabase.Query(
+        "SELECT "
+        "guild.guildid,guild.name,leaderguid,EmblemStyle,EmblemColor,BorderStyle,BorderColor,"
+        //   7               8    9    10
+        "BackgroundColor,info,motd,createdate FROM guild ORDER BY guildid ASC");
 
     if (!result)
     {
@@ -105,30 +108,32 @@ void GuildMgr::LoadGuilds()
 
     // load guild ranks
     //                                                                0       1   2     3
-    QueryResult *guildRanksResult   = CharacterDatabase.Query("SELECT guildid,rid,rname,rights FROM guild_rank ORDER BY guildid ASC, rid ASC");
+    auto guildRanksResult = CharacterDatabase.Query(
+        "SELECT guildid,rid,rname,rights FROM guild_rank ORDER BY guildid ASC, rid ASC");
 
     // load guild members
-    //                                                                0       1                 2    3     4
-    QueryResult *guildMembersResult = CharacterDatabase.Query("SELECT guildid,guild_member.guid,rank,pnote,offnote,"
-                                      //   5                6                 7                 8                9                       10
-                                      "characters.name, characters.level, characters.class, characters.zone, characters.logout_time, characters.account "
-                                      "FROM guild_member LEFT JOIN characters ON characters.guid = guild_member.guid ORDER BY guildid ASC");
+    //                                                                0       1                 2
+    //                                                                3     4
+    auto guildMembersResult = CharacterDatabase.Query(
+        "SELECT guildid,guild_member.guid,rank,pnote,offnote,"
+        //   5                6                 7                 8                9 10
+        "characters.name, characters.level, characters.class, characters.zone, "
+        "characters.logout_time, characters.account "
+        "FROM guild_member LEFT JOIN characters ON characters.guid = guild_member.guid ORDER BY "
+        "guildid ASC");
 
     BarGoLink bar(result->GetRowCount());
 
     do
     {
-        //Field *fields = result->Fetch();
+        // Field *fields = result->Fetch();
 
         bar.step();
         ++count;
 
-        Guild *newGuild = new Guild;
-        if (!newGuild->LoadGuildFromDB(result) ||
-                !newGuild->LoadRanksFromDB(guildRanksResult) ||
-                !newGuild->LoadMembersFromDB(guildMembersResult) ||
-                !newGuild->CheckGuildStructure()
-           )
+        Guild* newGuild = new Guild;
+        if (!newGuild->LoadGuildFromDB(result) || !newGuild->LoadRanksFromDB(guildRanksResult) ||
+            !newGuild->LoadMembersFromDB(guildMembersResult) || !newGuild->CheckGuildStructure())
         {
             newGuild->Disband();
             delete newGuild;
@@ -136,16 +141,12 @@ void GuildMgr::LoadGuilds()
         }
         newGuild->LoadGuildEventLogFromDB();
         AddGuild(newGuild);
-    }
-    while (result->NextRow());
+    } while (result->NextRow());
 
-    delete result;
-    delete guildRanksResult;
-    delete guildMembersResult;
-
-    //delete unused LogGuid records in guild_eventlog table
-    //you can comment these lines if you don't plan to change CONFIG_UINT32_GUILD_EVENT_LOG_COUNT
-    CharacterDatabase.PExecute("DELETE FROM guild_eventlog WHERE LogGuid > '%u'", sWorld.getConfig(CONFIG_UINT32_GUILD_EVENT_LOG_COUNT));
+    // delete unused LogGuid records in guild_eventlog table
+    // you can comment these lines if you don't plan to change CONFIG_UINT32_GUILD_EVENT_LOG_COUNT
+    CharacterDatabase.PExecute("DELETE FROM guild_eventlog WHERE LogGuid > '%u'",
+                               sWorld.getConfig(CONFIG_UINT32_GUILD_EVENT_LOG_COUNT));
 
     sLog.outString();
     sLog.outString(">> Loaded %u guild definitions", count);

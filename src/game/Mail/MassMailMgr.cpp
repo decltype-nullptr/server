@@ -24,26 +24,28 @@
  * @{
  *
  * @file MassMailMgr.cpp
- * This file contains the the code needed for MaNGOS to handle mass mails send in safe and perfomence not affecting way.
+ * This file contains the the code needed for MaNGOS to handle mass mails send in safe and
+ * perfomence not affecting way.
  *
  */
 
 #include "MassMailMgr.h"
-#include "Policies/SingletonImp.h"
 #include "Database/DatabaseEnv.h"
 #include "Database/DatabaseImpl.h"
+#include "ObjectMgr.h"
+#include "Policies/SingletonImp.h"
 #include "SharedDefines.h"
 #include "World.h"
-#include "ObjectMgr.h"
 
 INSTANTIATE_SINGLETON_1(MassMailMgr);
 
 void MassMailMgr::AddMassMailTask(MailDraft* mailProto, MailSender sender, uint32 raceMask)
 {
-    if (RACEMASK_ALL_PLAYABLE & ~raceMask)                  // have races not included in mask
+    if (RACEMASK_ALL_PLAYABLE & ~raceMask) // have races not included in mask
     {
         std::ostringstream ss;
-        ss << "SELECT guid FROM characters WHERE (1 << (race - 1)) & " << raceMask << " AND deleteDate IS NULL";
+        ss << "SELECT guid FROM characters WHERE (1 << (race - 1)) & " << raceMask
+           << " AND deleteDate IS NULL";
         AddMassMailTask(mailProto, sender, ss.str().c_str());
     }
     else
@@ -52,7 +54,9 @@ void MassMailMgr::AddMassMailTask(MailDraft* mailProto, MailSender sender, uint3
 
 struct MassMailerQueryHandler
 {
-    void HandleQueryCallback(QueryResult * result, MailDraft* mailProto, MailSender sender)
+    void HandleQueryCallback(const std::shared_ptr<QueryResult>& result,
+                             MailDraft* mailProto,
+                             MailSender sender)
     {
         if (!result)
             return;
@@ -61,18 +65,20 @@ struct MassMailerQueryHandler
 
         do
         {
-            Field *fields = result->Fetch();
-            recievers.insert(fields[0].GetUInt32());
+            Field* fields = result->Fetch();
+            recievers.insert(fields[ 0 ].GetUInt32());
 
-        }
-        while (result->NextRow());
-        delete result;
+        } while (result->NextRow());
     }
 } massMailerQueryHandler;
 
 void MassMailMgr::AddMassMailTask(MailDraft* mailProto, MailSender sender, char const* query)
 {
-    CharacterDatabase.AsyncPQuery(&massMailerQueryHandler, &MassMailerQueryHandler::HandleQueryCallback, mailProto, sender, query);
+    CharacterDatabase.AsyncPQuery({query},
+                                  &massMailerQueryHandler,
+                                  &MassMailerQueryHandler::HandleQueryCallback,
+                                  mailProto,
+                                  sender);
 }
 
 void MassMailMgr::Update(bool sendall /*= false*/)
@@ -92,13 +98,14 @@ void MassMailMgr::Update(bool sendall /*= false*/)
             task.m_receivers.erase(task.m_receivers.begin());
 
             ObjectGuid receiver_guid = ObjectGuid(HIGHGUID_PLAYER, receiver_lowguid);
-            Player *receiver = sObjectMgr.GetPlayer(receiver_guid);
+            Player* receiver         = sObjectMgr.GetPlayer(receiver_guid);
 
             // last case. can be just send
             if (task.m_receivers.empty())
             {
                 // prevent mail return
-                task.m_protoMail->SendMailTo(MailReceiver(receiver, receiver_guid), task.m_sender, MAIL_CHECK_MASK_RETURNED);
+                task.m_protoMail->SendMailTo(
+                    MailReceiver(receiver, receiver_guid), task.m_sender, MAIL_CHECK_MASK_RETURNED);
 
                 if (!sendall)
                     --maxcount;
@@ -110,7 +117,8 @@ void MassMailMgr::Update(bool sendall /*= false*/)
             draft.CloneFrom(*task.m_protoMail);
 
             // prevent mail return
-            draft.SendMailTo(MailReceiver(receiver, receiver_guid), task.m_sender, MAIL_CHECK_MASK_RETURNED);
+            draft.SendMailTo(
+                MailReceiver(receiver, receiver_guid), task.m_sender, MAIL_CHECK_MASK_RETURNED);
 
             if (!sendall)
                 --maxcount;
@@ -118,8 +126,7 @@ void MassMailMgr::Update(bool sendall /*= false*/)
 
         if (task.m_receivers.empty())
             m_massMails.pop_front();
-    }
-    while (!m_massMails.empty() && (sendall || maxcount > 0));
+    } while (!m_massMails.empty() && (sendall || maxcount > 0));
 }
 
 void MassMailMgr::GetStatistic(uint32& tasks, uint32& mails, uint32& needTime) const
@@ -127,14 +134,15 @@ void MassMailMgr::GetStatistic(uint32& tasks, uint32& mails, uint32& needTime) c
     tasks = m_massMails.size();
 
     uint32 mailsCount = 0;
-    for (MassMailList::const_iterator mailItr = m_massMails.begin(); mailItr != m_massMails.end(); ++mailItr)
+    for (MassMailList::const_iterator mailItr = m_massMails.begin(); mailItr != m_massMails.end();
+         ++mailItr)
         mailsCount += mailItr->m_receivers.size();
 
     mails = mailsCount;
 
     // 50 msecs is tick length
-    needTime = 50 * mailsCount / sWorld.getConfig(CONFIG_UINT32_MASS_MAILER_SEND_PER_TICK) / IN_MILLISECONDS;
+    needTime = 50 * mailsCount / sWorld.getConfig(CONFIG_UINT32_MASS_MAILER_SEND_PER_TICK) /
+               IN_MILLISECONDS;
 }
-
 
 /*! @} */

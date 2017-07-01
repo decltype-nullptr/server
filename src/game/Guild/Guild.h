@@ -29,61 +29,62 @@
 
 class Item;
 
-#define GUILD_RANKS_MIN_COUNT   5
-#define GUILD_RANKS_MAX_COUNT   10
+#define GUILD_RANKS_MIN_COUNT 5
+#define GUILD_RANKS_MAX_COUNT 10
 
 enum
 {
-    GUILD_NOTE_MAX_LENGTH       = 31,
-    GUILD_INFO_MAX_LENGTH       = 500,
-    GUILD_MOTD_MAX_LENGTH       = 128,
+    GUILD_NOTE_MAX_LENGTH = 31,
+    GUILD_INFO_MAX_LENGTH = 500,
+    GUILD_MOTD_MAX_LENGTH = 128,
     // 0x8000 is client max accepted packet size.
     // Set a limit so that SMSG_GUILD_ROSTER size is never over this size.
-    GUILD_MAX_MEMBERS           = (0x8000 - 10 - GUILD_RANKS_MAX_COUNT - GUILD_INFO_MAX_LENGTH - GUILD_MOTD_MAX_LENGTH) / 100,
+    GUILD_MAX_MEMBERS =
+        (0x8000 - 10 - GUILD_RANKS_MAX_COUNT - GUILD_INFO_MAX_LENGTH - GUILD_MOTD_MAX_LENGTH) / 100,
 };
 
 enum GuildDefaultRanks
 {
-    //these ranks can be modified, but they cannot be deleted
-    GR_GUILDMASTER  = 0,
-    GR_OFFICER      = 1,
-    GR_VETERAN      = 2,
-    GR_MEMBER       = 3,
-    GR_INITIATE     = 4,
-    //When promoting member server does: rank--;!
-    //When demoting member server does: rank++;!
+    // these ranks can be modified, but they cannot be deleted
+    GR_GUILDMASTER = 0,
+    GR_OFFICER     = 1,
+    GR_VETERAN     = 2,
+    GR_MEMBER      = 3,
+    GR_INITIATE    = 4,
+    // When promoting member server does: rank--;!
+    // When demoting member server does: rank++;!
 };
 
 enum GuildRankRights
 {
-    GR_RIGHT_EMPTY              = 0x00000040,
-    GR_RIGHT_GCHATLISTEN        = 0x00000041,
-    GR_RIGHT_GCHATSPEAK         = 0x00000042,
-    GR_RIGHT_OFFCHATLISTEN      = 0x00000044,
-    GR_RIGHT_OFFCHATSPEAK       = 0x00000048,
-    GR_RIGHT_PROMOTE            = 0x000000C0,
-    GR_RIGHT_DEMOTE             = 0x00000140,
-    GR_RIGHT_INVITE             = 0x00000050,
-    GR_RIGHT_REMOVE             = 0x00000060,
-    GR_RIGHT_SETMOTD            = 0x00001040,
-    GR_RIGHT_EPNOTE             = 0x00002040,
-    GR_RIGHT_VIEWOFFNOTE        = 0x00004040,
-    GR_RIGHT_EOFFNOTE           = 0x00008040,
+    GR_RIGHT_EMPTY         = 0x00000040,
+    GR_RIGHT_GCHATLISTEN   = 0x00000041,
+    GR_RIGHT_GCHATSPEAK    = 0x00000042,
+    GR_RIGHT_OFFCHATLISTEN = 0x00000044,
+    GR_RIGHT_OFFCHATSPEAK  = 0x00000048,
+    GR_RIGHT_PROMOTE       = 0x000000C0,
+    GR_RIGHT_DEMOTE        = 0x00000140,
+    GR_RIGHT_INVITE        = 0x00000050,
+    GR_RIGHT_REMOVE        = 0x00000060,
+    GR_RIGHT_SETMOTD       = 0x00001040,
+    GR_RIGHT_EPNOTE        = 0x00002040,
+    GR_RIGHT_VIEWOFFNOTE   = 0x00004040,
+    GR_RIGHT_EOFFNOTE      = 0x00008040,
     // [-ZERO] tbc enumerations [?]
-    GR_RIGHT_MODIFY_GUILD_INFO  = 0x00010040,
-    GR_RIGHT_ALL                = 0x000FF1FF
+    GR_RIGHT_MODIFY_GUILD_INFO = 0x00010040,
+    GR_RIGHT_ALL               = 0x000FF1FF
 };
 
 enum Typecommand
 {
-    GUILD_CREATE_S  = 0x00,
-    GUILD_INVITE_S  = 0x01,
-    GUILD_QUIT_S    = 0x03,
+    GUILD_CREATE_S = 0x00,
+    GUILD_INVITE_S = 0x01,
+    GUILD_QUIT_S   = 0x03,
     // 0x05?
     GUILD_FOUNDER_S = 0x0E,
     // [-ZERO] tbc enumerations [?]
-    GUILD_UNK1      = 0x10,
-    GUILD_UNK3      = 0x16
+    GUILD_UNK1 = 0x10,
+    GUILD_UNK3 = 0x16
 };
 
 enum CommandErrors
@@ -103,55 +104,55 @@ enum CommandErrors
     ERR_GUILD_PLAYER_NOT_FOUND_S    = 0x0B,
     ERR_GUILD_NOT_ALLIED            = 0x0C,
     // [-ZERO] tbc enumerations ?
-    ERR_GUILD_RANK_TOO_HIGH_S       = 0x0D,
-    ERR_GUILD_RANK_TOO_LOW_S        = 0x0E,
-    ERR_GUILD_RANKS_LOCKED          = 0x11,
-    ERR_GUILD_RANK_IN_USE           = 0x12,
-    ERR_GUILD_IGNORING_YOU_S        = 0x13,
+    ERR_GUILD_RANK_TOO_HIGH_S = 0x0D,
+    ERR_GUILD_RANK_TOO_LOW_S  = 0x0E,
+    ERR_GUILD_RANKS_LOCKED    = 0x11,
+    ERR_GUILD_RANK_IN_USE     = 0x12,
+    ERR_GUILD_IGNORING_YOU_S  = 0x13,
 };
 
 enum GuildEvents
 {
-    GE_PROMOTION                    = 0x00,
-    GE_DEMOTION                     = 0x01,
-    GE_MOTD                         = 0x02,
-    GE_JOINED                       = 0x03,
-    GE_LEFT                         = 0x04,
-    GE_REMOVED                      = 0x05,
-    GE_LEADER_IS                    = 0x06,
-    GE_LEADER_CHANGED               = 0x07,
-    GE_DISBANDED                    = 0x08,
-    GE_TABARDCHANGE                 = 0x09,
-    GE_UNK1                         = 0x0A,                 // string, string EVENT_GUILD_ROSTER_UPDATE tab content change?
-    GE_UNK2                         = 0x0B,                 // EVENT_GUILD_ROSTER_UPDATE
-    GE_SIGNED_ON                    = 0x0C,                 // ERR_FRIEND_ONLINE_SS
-    GE_SIGNED_OFF                   = 0x0D,                 // ERR_FRIEND_OFFLINE_S
+    GE_PROMOTION      = 0x00,
+    GE_DEMOTION       = 0x01,
+    GE_MOTD           = 0x02,
+    GE_JOINED         = 0x03,
+    GE_LEFT           = 0x04,
+    GE_REMOVED        = 0x05,
+    GE_LEADER_IS      = 0x06,
+    GE_LEADER_CHANGED = 0x07,
+    GE_DISBANDED      = 0x08,
+    GE_TABARDCHANGE   = 0x09,
+    GE_UNK1           = 0x0A, // string, string EVENT_GUILD_ROSTER_UPDATE tab content change?
+    GE_UNK2           = 0x0B, // EVENT_GUILD_ROSTER_UPDATE
+    GE_SIGNED_ON      = 0x0C, // ERR_FRIEND_ONLINE_SS
+    GE_SIGNED_OFF     = 0x0D, // ERR_FRIEND_OFFLINE_S
 };
 
 enum PetitionTurns
 {
-    PETITION_TURN_OK                    = 0,
-    PETITION_TURN_ALREADY_IN_GUILD      = 2,
-    PETITION_TURN_NEED_MORE_SIGNATURES  = 4,
+    PETITION_TURN_OK                   = 0,
+    PETITION_TURN_ALREADY_IN_GUILD     = 2,
+    PETITION_TURN_NEED_MORE_SIGNATURES = 4,
 };
 
 enum PetitionSigns
 {
-    PETITION_SIGN_OK                = 0,
-    PETITION_SIGN_ALREADY_SIGNED    = 1,
-    PETITION_SIGN_ALREADY_IN_GUILD  = 2,
-    PETITION_SIGN_CANT_SIGN_OWN     = 3,
-    PETITION_SIGN_NOT_SERVER        = 4,
+    PETITION_SIGN_OK               = 0,
+    PETITION_SIGN_ALREADY_SIGNED   = 1,
+    PETITION_SIGN_ALREADY_IN_GUILD = 2,
+    PETITION_SIGN_CANT_SIGN_OWN    = 3,
+    PETITION_SIGN_NOT_SERVER       = 4,
 };
 
 enum GuildEventLogTypes
 {
-    GUILD_EVENT_LOG_INVITE_PLAYER     = 1,
-    GUILD_EVENT_LOG_JOIN_GUILD        = 2,
-    GUILD_EVENT_LOG_PROMOTE_PLAYER    = 3,
-    GUILD_EVENT_LOG_DEMOTE_PLAYER     = 4,
-    GUILD_EVENT_LOG_UNINVITE_PLAYER   = 5,
-    GUILD_EVENT_LOG_LEAVE_GUILD       = 6,
+    GUILD_EVENT_LOG_INVITE_PLAYER   = 1,
+    GUILD_EVENT_LOG_JOIN_GUILD      = 2,
+    GUILD_EVENT_LOG_PROMOTE_PLAYER  = 3,
+    GUILD_EVENT_LOG_DEMOTE_PLAYER   = 4,
+    GUILD_EVENT_LOG_UNINVITE_PLAYER = 5,
+    GUILD_EVENT_LOG_LEAVE_GUILD     = 6,
 };
 
 enum GuildEmblem
@@ -166,10 +167,10 @@ enum GuildEmblem
 
 struct GuildEventLogEntry
 {
-    uint8  EventType;
+    uint8 EventType;
     uint32 PlayerGuid1;
     uint32 PlayerGuid2;
-    uint8  NewRank;
+    uint8 NewRank;
     uint64 TimeStamp;
 };
 
@@ -195,7 +196,9 @@ struct MemberSlot
 
 struct RankInfo
 {
-    RankInfo(const std::string& _name, uint32 _rights) : Name(_name), Rights(_rights)
+    RankInfo(const std::string& _name, uint32 _rights)
+        : Name(_name)
+        , Rights(_rights)
     {
     }
 
@@ -205,143 +208,165 @@ struct RankInfo
 
 class Guild
 {
-    public:
-        Guild();
-        ~Guild();
+public:
+    Guild();
+    ~Guild();
 
-        bool Create(Player* leader, std::string gname);
-        void CreateDefaultGuildRanks(int locale_idx);
-        void Disband();
+    bool Create(Player* leader, std::string gname);
+    void CreateDefaultGuildRanks(int locale_idx);
+    void Disband();
 
-        typedef UNORDERED_MAP<uint32, MemberSlot> MemberList;
-        typedef std::vector<RankInfo> RankList;
+    typedef UNORDERED_MAP<uint32, MemberSlot> MemberList;
+    typedef std::vector<RankInfo> RankList;
 
-        uint32 GetId(){ return m_Id; }
-        ObjectGuid GetLeaderGuid() const { return m_LeaderGuid; }
-        std::string const& GetName() const { return m_Name; }
-        std::string const& GetMOTD() const { return MOTD; }
-        std::string const& GetGINFO() const { return GINFO; }
+    uint32 GetId() { return m_Id; }
+    ObjectGuid GetLeaderGuid() const { return m_LeaderGuid; }
+    std::string const& GetName() const { return m_Name; }
+    std::string const& GetMOTD() const { return MOTD; }
+    std::string const& GetGINFO() const { return GINFO; }
 
-        uint32 GetCreatedYear() const { return m_CreatedYear; }
-        uint32 GetCreatedMonth() const { return m_CreatedMonth; }
-        uint32 GetCreatedDay() const { return m_CreatedDay; }
+    uint32 GetCreatedYear() const { return m_CreatedYear; }
+    uint32 GetCreatedMonth() const { return m_CreatedMonth; }
+    uint32 GetCreatedDay() const { return m_CreatedDay; }
 
-        uint32 GetEmblemStyle() const { return m_EmblemStyle; }
-        uint32 GetEmblemColor() const { return m_EmblemColor; }
-        uint32 GetBorderStyle() const { return m_BorderStyle; }
-        uint32 GetBorderColor() const { return m_BorderColor; }
-        uint32 GetBackgroundColor() const { return m_BackgroundColor; }
+    uint32 GetEmblemStyle() const { return m_EmblemStyle; }
+    uint32 GetEmblemColor() const { return m_EmblemColor; }
+    uint32 GetBorderStyle() const { return m_BorderStyle; }
+    uint32 GetBorderColor() const { return m_BorderColor; }
+    uint32 GetBackgroundColor() const { return m_BackgroundColor; }
 
-        void SetLeader(ObjectGuid guid);
-        bool AddMember(ObjectGuid plGuid, uint32 plRank);
-        bool DelMember(ObjectGuid guid, bool isDisbanding = false);
-        //lowest rank is the count of ranks - 1 (the highest rank_id in table)
-        uint32 GetLowestRank() const { return m_Ranks.size() - 1; }
+    void SetLeader(ObjectGuid guid);
+    bool AddMember(ObjectGuid plGuid, uint32 plRank);
+    bool DelMember(ObjectGuid guid, bool isDisbanding = false);
+    // lowest rank is the count of ranks - 1 (the highest rank_id in table)
+    uint32 GetLowestRank() const { return m_Ranks.size() - 1; }
 
-        void SetMOTD(std::string motd);
-        void SetGINFO(std::string ginfo);
-        void SetEmblem(uint32 emblemStyle, uint32 emblemColor, uint32 borderStyle, uint32 borderColor, uint32 backgroundColor);
+    void SetMOTD(std::string motd);
+    void SetGINFO(std::string ginfo);
+    void SetEmblem(uint32 emblemStyle,
+                   uint32 emblemColor,
+                   uint32 borderStyle,
+                   uint32 borderColor,
+                   uint32 backgroundColor);
 
-        uint32 GetMemberSize() const { return members.size(); }
-        uint32 GetAccountsNumber();
+    uint32 GetMemberSize() const { return members.size(); }
+    uint32 GetAccountsNumber();
 
-        bool LoadGuildFromDB(QueryResult *guildDataResult);
-        bool CheckGuildStructure();
-        bool LoadRanksFromDB(QueryResult *guildRanksResult);
-        bool LoadMembersFromDB(QueryResult *guildMembersResult);
+    bool LoadGuildFromDB(const std::shared_ptr<QueryResult>& guildDataResult);
+    bool CheckGuildStructure();
+    bool LoadRanksFromDB(const std::shared_ptr<QueryResult>& guildRanksResult);
+    bool LoadMembersFromDB(const std::shared_ptr<QueryResult>& guildMembersResult);
 
-        void BroadcastToGuild(WorldSession *session, const std::string& msg, uint32 language = LANG_UNIVERSAL);
-        void BroadcastToOfficers(WorldSession *session, const std::string& msg, uint32 language = LANG_UNIVERSAL);
-        void BroadcastPacketToRank(WorldPacket *packet, uint32 rankId);
-        void BroadcastPacket(WorldPacket *packet);
+    void BroadcastToGuild(WorldSession* session,
+                          const std::string& msg,
+                          uint32 language = LANG_UNIVERSAL);
+    void BroadcastToOfficers(WorldSession* session,
+                             const std::string& msg,
+                             uint32 language = LANG_UNIVERSAL);
+    void BroadcastPacketToRank(WorldPacket* packet, uint32 rankId);
+    void BroadcastPacket(WorldPacket* packet);
 
-        void BroadcastEvent(GuildEvents event, ObjectGuid guid, char const* str1 = NULL, char const* str2 = NULL, char const* str3 = NULL);
-        void BroadcastEvent(GuildEvents event, char const* str1 = NULL, char const* str2 = NULL, char const* str3 = NULL)
-        {
-            BroadcastEvent(event, ObjectGuid(), str1, str2, str3);
-        }
+    void BroadcastEvent(GuildEvents event,
+                        ObjectGuid guid,
+                        char const* str1 = NULL,
+                        char const* str2 = NULL,
+                        char const* str3 = NULL);
+    void BroadcastEvent(GuildEvents event,
+                        char const* str1 = NULL,
+                        char const* str2 = NULL,
+                        char const* str3 = NULL)
+    {
+        BroadcastEvent(event, ObjectGuid(), str1, str2, str3);
+    }
 
-        template<class Do>
-        void BroadcastWorker(Do& _do, Player* except = NULL)
-        {
-            for(MemberList::iterator itr = members.begin(); itr != members.end(); ++itr)
-                if(Player *player = ObjectAccessor::FindPlayer(ObjectGuid(HIGHGUID_PLAYER, itr->first)))
-                    if(player != except)
-                        _do(player);
-        }
+    template <class Do>
+    void BroadcastWorker(Do& _do, Player* except = NULL)
+    {
+        for (MemberList::iterator itr = members.begin(); itr != members.end(); ++itr)
+            if (Player* player =
+                    ObjectAccessor::FindPlayer(ObjectGuid(HIGHGUID_PLAYER, itr->first)))
+                if (player != except)
+                    _do(player);
+    }
 
-        void CreateRank(std::string name,uint32 rights);
-        void DelRank();
-        std::string GetRankName(uint32 rankId);
-        uint32 GetRankRights(uint32 rankId);
-        uint32 GetRanksSize() const { return m_Ranks.size(); }
+    void CreateRank(std::string name, uint32 rights);
+    void DelRank();
+    std::string GetRankName(uint32 rankId);
+    uint32 GetRankRights(uint32 rankId);
+    uint32 GetRanksSize() const { return m_Ranks.size(); }
 
-        void SetRankName(uint32 rankId, std::string name);
-        void SetRankRights(uint32 rankId, uint32 rights);
-        bool HasRankRight(uint32 rankId, uint32 right)
-        {
-            return ((GetRankRights(rankId) & right) != GR_RIGHT_EMPTY) ? true : false;
-        }
+    void SetRankName(uint32 rankId, std::string name);
+    void SetRankRights(uint32 rankId, uint32 rights);
+    bool HasRankRight(uint32 rankId, uint32 right)
+    {
+        return ((GetRankRights(rankId) & right) != GR_RIGHT_EMPTY) ? true : false;
+    }
 
-        int32 GetRank(ObjectGuid guid)
-        {
-            MemberSlot* slot = GetMemberSlot(guid);
-            return slot ? slot->RankId : -1;
-        }
+    int32 GetRank(ObjectGuid guid)
+    {
+        MemberSlot* slot = GetMemberSlot(guid);
+        return slot ? slot->RankId : -1;
+    }
 
-        MemberSlot* GetMemberSlot(ObjectGuid guid)
-        {
-            MemberList::iterator itr = members.find(guid.GetCounter());
-            return itr != members.end() ? &itr->second : NULL;
-        }
+    MemberSlot* GetMemberSlot(ObjectGuid guid)
+    {
+        MemberList::iterator itr = members.find(guid.GetCounter());
+        return itr != members.end() ? &itr->second : NULL;
+    }
 
-        MemberSlot* GetMemberSlot(const std::string& name)
-        {
-            for(MemberList::iterator itr = members.begin(); itr != members.end(); ++itr)
-                if(itr->second.Name == name)
-                    return &itr->second;
+    MemberSlot* GetMemberSlot(const std::string& name)
+    {
+        for (MemberList::iterator itr = members.begin(); itr != members.end(); ++itr)
+            if (itr->second.Name == name)
+                return &itr->second;
 
-            return NULL;
-        }
+        return NULL;
+    }
 
-        void Roster(WorldSession *session = NULL);          // NULL = broadcast
-        void Query(WorldSession *session);
+    void Roster(WorldSession* session = NULL); // NULL = broadcast
+    void Query(WorldSession* session);
 
-        // Guild EventLog
-        void   LoadGuildEventLogFromDB();
-        void   DisplayGuildEventLog(WorldSession *session);
-        void   LogGuildEvent(uint8 EventType, ObjectGuid playerGuid1, ObjectGuid playerGuid2 = ObjectGuid(), uint8 newRank = 0);
+    // Guild EventLog
+    void LoadGuildEventLogFromDB();
+    void DisplayGuildEventLog(WorldSession* session);
+    void LogGuildEvent(uint8 EventType,
+                       ObjectGuid playerGuid1,
+                       ObjectGuid playerGuid2 = ObjectGuid(),
+                       uint8 newRank          = 0);
 
-    protected:
-        void AddRank(const std::string& name,uint32 rights);
+protected:
+    void AddRank(const std::string& name, uint32 rights);
 
-        uint32 m_Id;
-        std::string m_Name;
-        ObjectGuid m_LeaderGuid;
-        std::string MOTD;
-        std::string GINFO;
-        uint32 m_CreatedYear;
-        uint32 m_CreatedMonth;
-        uint32 m_CreatedDay;
+    uint32 m_Id;
+    std::string m_Name;
+    ObjectGuid m_LeaderGuid;
+    std::string MOTD;
+    std::string GINFO;
+    uint32 m_CreatedYear;
+    uint32 m_CreatedMonth;
+    uint32 m_CreatedDay;
 
-        uint32 m_EmblemStyle;
-        uint32 m_EmblemColor;
-        uint32 m_BorderStyle;
-        uint32 m_BorderColor;
-        uint32 m_BackgroundColor;
-        uint32 m_accountsNumber;                            // 0 used as marker for need lazy calculation at request
+    uint32 m_EmblemStyle;
+    uint32 m_EmblemColor;
+    uint32 m_BorderStyle;
+    uint32 m_BorderColor;
+    uint32 m_BackgroundColor;
+    uint32 m_accountsNumber; // 0 used as marker for need lazy calculation at request
 
-        RankList m_Ranks;
+    RankList m_Ranks;
 
-        MemberList members;
+    MemberList members;
 
-        /** These are actually ordered lists. The first element is the oldest entry.*/
-        typedef std::list<GuildEventLogEntry> GuildEventLog;
-        GuildEventLog m_GuildEventLog;
+    /** These are actually ordered lists. The first element is the oldest entry.*/
+    typedef std::list<GuildEventLogEntry> GuildEventLog;
+    GuildEventLog m_GuildEventLog;
 
-        uint32 m_GuildEventLogNextGuid;
+    uint32 m_GuildEventLogNextGuid;
 
-    private:
-        void UpdateAccountsNumber() { m_accountsNumber = 0;}// mark for lazy calculation at request in GetAccountsNumber
+private:
+    void UpdateAccountsNumber()
+    {
+        m_accountsNumber = 0;
+    } // mark for lazy calculation at request in GetAccountsNumber
 };
 #endif

@@ -25,12 +25,12 @@
 
 #include "PatchHandler.h"
 #include "AuthCodes.h"
-#include "Log.h"
 #include "Common.h"
+#include "Log.h"
 
-#include <ace/OS_NS_sys_socket.h>
 #include <ace/OS_NS_dirent.h>
 #include <ace/OS_NS_errno.h>
+#include <ace/OS_NS_sys_socket.h>
 #include <ace/OS_NS_unistd.h>
 
 #include <ace/os_include/netinet/os_tcp.h>
@@ -39,20 +39,20 @@
 #define MSG_NOSIGNAL 0
 #endif
 
-#if defined( __GNUC__ )
+#if defined(__GNUC__)
 #pragma pack(1)
 #else
-#pragma pack(push,1)
+#pragma pack(push, 1)
 #endif
 
 struct Chunk
 {
     ACE_UINT8 cmd;
     ACE_UINT16 data_size;
-    ACE_UINT8 data[4096]; // 4096 - page size on most arch
+    ACE_UINT8 data[ 4096 ]; // 4096 - page size on most arch
 };
 
-#if defined( __GNUC__ )
+#if defined(__GNUC__)
 #pragma pack()
 #else
 #pragma pack(pop)
@@ -60,43 +60,37 @@ struct Chunk
 
 PatchHandler::PatchHandler(ACE_HANDLE socket, ACE_HANDLE patch)
 {
-    reactor(NULL);
+    reactor(nullptr);
     set_handle(socket);
     patch_fd_ = patch;
 }
 
 PatchHandler::~PatchHandler()
 {
-    if(patch_fd_ != ACE_INVALID_HANDLE)
+    if (patch_fd_ != ACE_INVALID_HANDLE)
         ACE_OS::close(patch_fd_);
 }
 
 int PatchHandler::open(void*)
 {
-    if(get_handle() == ACE_INVALID_HANDLE || patch_fd_ == ACE_INVALID_HANDLE)
+    if (get_handle() == ACE_INVALID_HANDLE || patch_fd_ == ACE_INVALID_HANDLE)
         return -1;
 
     int nodelay = 0;
-    if (-1 == peer().set_option(ACE_IPPROTO_TCP,
-                TCP_NODELAY,
-                &nodelay,
-                sizeof(nodelay)))
+    if (-1 == peer().set_option(ACE_IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay)))
     {
         return -1;
     }
 
 #if defined(TCP_CORK)
     int cork = 1;
-    if (-1 == peer().set_option(ACE_IPPROTO_TCP,
-                TCP_CORK,
-                &cork,
-                sizeof(cork)))
+    if (-1 == peer().set_option(ACE_IPPROTO_TCP, TCP_CORK, &cork, sizeof(cork)))
     {
         return -1;
     }
-#endif //TCP_CORK
+#endif // TCP_CORK
 
-    (void) peer().disable(ACE_NONBLOCK);
+    (void)peer().disable(ACE_NONBLOCK);
 
     return activate(THR_NEW_LWP | THR_DETACHED | THR_INHERIT_SCHED);
 }
@@ -114,19 +108,18 @@ int PatchHandler::svc(void)
 
     ssize_t r;
 
-    while((r = ACE_OS::read(patch_fd_, data.data, sizeof(data.data))) > 0)
+    while ((r = ACE_OS::read(patch_fd_, data.data, sizeof(data.data))) > 0)
     {
         data.data_size = (ACE_UINT16)r;
 
-        if(peer().send((const char*)&data,
-                    ((size_t) r) + sizeof(data) - sizeof(data.data),
-                    flags) == -1)
+        if (peer().send(
+                (const char*)&data, ((size_t)r) + sizeof(data) - sizeof(data.data), flags) == -1)
         {
             return -1;
         }
     }
 
-    if(r == -1)
+    if (r == -1)
     {
         return -1;
     }
@@ -136,8 +129,8 @@ int PatchHandler::svc(void)
 
 PatchCache::~PatchCache()
 {
-    for (Patches::iterator i = patches_.begin (); i != patches_.end (); i++)
-        delete i->second;
+    for (const auto& i : patches_)
+        delete i.second;
 }
 
 PatchCache::PatchCache()
@@ -155,21 +148,21 @@ void PatchCache::LoadPatchMD5(const char* szFileName)
     // Try to open the patch file
     std::string path = "./patches/";
     path += szFileName;
-    FILE * pPatch = fopen(path.c_str (), "rb");
+    FILE* pPatch = fopen(path.c_str(), "rb");
     DEBUG_LOG("Loading patch info from %s", path.c_str());
 
-    if(!pPatch)
+    if (!pPatch)
         return;
 
     // Calculate the MD5 hash
     MD5_CTX ctx;
     MD5_Init(&ctx);
 
-    const size_t check_chunk_size = 4*1024;
+    const size_t check_chunk_size = 4 * 1024;
 
-    ACE_UINT8 buf[check_chunk_size];
+    ACE_UINT8 buf[ check_chunk_size ];
 
-    while(!feof (pPatch))
+    while (!feof(pPatch))
     {
         size_t read = fread(buf, 1, check_chunk_size, pPatch);
         MD5_Update(&ctx, buf, read);
@@ -178,14 +171,14 @@ void PatchCache::LoadPatchMD5(const char* szFileName)
     fclose(pPatch);
 
     // Store the result in the internal patch hash map
-    patches_[path] = new PATCH_INFO;
-    MD5_Final((ACE_UINT8 *) & patches_[path]->md5, &ctx);
+    patches_[ path ] = new PATCH_INFO;
+    MD5_Final((ACE_UINT8*)&patches_[ path ]->md5, &ctx);
 }
 
-bool PatchCache::GetHash(const char * pat, ACE_UINT8 mymd5[MD5_DIGEST_LENGTH])
+bool PatchCache::GetHash(const char* pat, ACE_UINT8 mymd5[ MD5_DIGEST_LENGTH ])
 {
-    for (Patches::iterator i = patches_.begin (); i != patches_.end (); i++)
-        if (!stricmp(pat, i->first.c_str ()))
+    for (Patches::iterator i = patches_.begin(); i != patches_.end(); i++)
+        if (!stricmp(pat, i->first.c_str()))
         {
             memcpy(mymd5, i->second->md5, MD5_DIGEST_LENGTH);
             return true;
@@ -198,18 +191,18 @@ void PatchCache::LoadPatchesInfo()
 {
     ACE_DIR* dirp = ACE_OS::opendir(ACE_TEXT("./patches/"));
 
-    if(!dirp)
+    if (!dirp)
         return;
 
     ACE_DIRENT* dp;
 
-    while((dp = ACE_OS::readdir(dirp)) != NULL)
+    while ((dp = ACE_OS::readdir(dirp)) != NULL)
     {
         int l = strlen(dp->d_name);
         if (l < 8)
             continue;
 
-        if(!memcmp(&dp->d_name[l - 4], ".mpq", 4))
+        if (!memcmp(&dp->d_name[ l - 4 ], ".mpq", 4))
             LoadPatchMD5(dp->d_name);
     }
 
