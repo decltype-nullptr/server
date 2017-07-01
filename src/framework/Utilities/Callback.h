@@ -19,33 +19,13 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef MANGOS_CALLBACK_H
-#define MANGOS_CALLBACK_H
+#pragma once
 
-#include <memory>
-
-// defines to simplify multi param templates code and readablity
-#define TYPENAMES_1 typename T1
-#define TYPENAMES_2 TYPENAMES_1, typename T2
-#define TYPENAMES_3 TYPENAMES_2, typename T3
-#define TYPENAMES_4 TYPENAMES_3, typename T4
-#define TYPENAMES_5 TYPENAMES_4, typename T5
-#define TYPENAMES_6 TYPENAMES_5, typename T6
-#define TYPENAMES_7 TYPENAMES_6, typename T7
-#define TYPENAMES_8 TYPENAMES_7, typename T8
-#define TYPENAMES_9 TYPENAMES_8, typename T9
-#define TYPENAMES_10 TYPENAMES_9, typename T10
-
-#define PARAMS_1 T1 param1
-#define PARAMS_2 PARAMS_1, T2 param2
-#define PARAMS_3 PARAMS_2, T3 param3
-#define PARAMS_4 PARAMS_3, T4 param4
-#define PARAMS_5 PARAMS_4, T5 param5
-#define PARAMS_6 PARAMS_5, T6 param6
-#define PARAMS_7 PARAMS_6, T7 param7
-#define PARAMS_8 PARAMS_7, T8 param8
-#define PARAMS_9 PARAMS_8, T9 param9
-#define PARAMS_10 PARAMS_9, T10 param10
+namespace std
+{
+    template <typename T>
+    class shared_ptr;
+}
 
 // empty struct to use in templates instead of void type
 struct null
@@ -178,8 +158,8 @@ namespace MaNGOS
         }
         virtual void Execute() = 0;
         virtual ~IQueryCallback() {}
-        virtual void SetResult(std::shared_ptr<QueryResult> result) = 0;
-        virtual std::shared_ptr<QueryResult> GetResult() const      = 0;
+        virtual void SetResult(const std::shared_ptr<QueryResult>& result) = 0;
+        virtual const std::shared_ptr<QueryResult>& GetResult() const      = 0;
         bool IsThreadSafe() const { return threadSafe; }
         bool threadSafe;
     };
@@ -195,12 +175,12 @@ namespace MaNGOS
 
         void Execute() { CB::_Execute(); }
 
-        void SetResult(std::shared_ptr<QueryResult> result)
+        void SetResult(const std::shared_ptr<QueryResult>& result)
         {
             const_cast<std::shared_ptr<QueryResult>&>(std::get<0>(CB::m_params)) = result;
         }
 
-        std::shared_ptr<QueryResult> GetResult() const { return std::get<0>(CB::m_params); }
+        const std::shared_ptr<QueryResult>& GetResult() const { return std::get<0>(CB::m_params); }
     };
 
     template <typename Class, typename... Args>
@@ -238,5 +218,3 @@ namespace MaNGOS
         }
     };
 }
-
-#endif
